@@ -135,4 +135,21 @@
     border-radius: 6px;
     display: block;
   }
+
+  /* 卡券图标：按建议尺寸 300x240 比例展示 */
+  .coupon-icon-uploader .el-upload,
+  .coupon-icon-uploader .el-upload--picture-card {
+    width: 150px !important;
+    height: 120px !important;
+    line-height: 120px !important;
+  }
+
+  .coupon-icon-uploader .coupon-icon-preview {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    border: none;
+    border-radius: 4px;
+    display: block;
+  }
 }

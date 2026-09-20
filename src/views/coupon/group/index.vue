@@ -187,12 +187,12 @@ const tables = ref(null)
 function getList() {
       loading.value = true;
       getGroupList(queryParams).then( response => {
-          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
-          total.value = response.data.paginationResponse.totalElements;
+          const page = (response.data && response.data.paginationResponse) || {};
+          list.length = 0; list.push(...(page.content || []));
+          total.value = page.totalElements || 0;
           userGradeList.length = 0; userGradeList.push(...(response.data.userGradeList || []))
-          loading.value = false;
-        }
-      );
+          
+        }).finally(() => { loading.value = false });
     }
 
 function handleQuery() {
@@ -203,7 +203,7 @@ function handleQuery() {
 function resetQuery() {
       dateRange.value = [];
       queryForm.value?.resetFields();
-      tables.value.sort(defaultSort.prop, defaultSort.order)
+      tables.value?.sort(defaultSort.prop, defaultSort.order)
       handleQuery();
     }
 

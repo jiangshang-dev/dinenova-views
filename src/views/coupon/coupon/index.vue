@@ -136,7 +136,7 @@
 
     <!-- 添加或修改卡券对话框 start-->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="140px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="卡券类型" prop="type">
@@ -394,25 +394,28 @@
           </el-col>
         </el-row>
         <el-row>
-          <el-col :span="8">
+          <el-col :span="24">
             <el-form-item label="图标" prop="image">
-              <el-upload
-                 :action="uploadAction"
-                 list-type="picture-card"
-                 :file-list="uploadFiles"
-                 :auto-upload="true"
-                 :on-success="handleUploadSuccess"
-                 :headers="uploadHeader"
-                 :show-file-list="false">
-                <img
-                  v-if="form.image"
-                  :src="imagePath + form.image"
-                  class="list-img" />
-                 <i class="el-icon-plus"></i>
-              </el-upload>
+              <div class="coupon-icon-upload">
+                <el-upload
+                  class="coupon-icon-uploader"
+                  :action="uploadAction"
+                  list-type="picture-card"
+                  :file-list="uploadFiles"
+                  :auto-upload="true"
+                  :on-success="handleUploadSuccess"
+                  :headers="uploadHeader"
+                  :show-file-list="false">
+                  <img
+                    v-if="form.image"
+                    :src="imagePath + form.image"
+                    class="coupon-icon-preview" />
+                  <i v-else class="el-icon-plus coupon-icon-plus"></i>
+                </el-upload>
+                <div class="form-tips">提示：点击图片修改，建议尺寸 300 × 240</div>
+              </div>
             </el-form-item>
           </el-col>
-          <p class="form-tips">（提示：点击图片修改，建议尺寸：300 x 240）</p>
         </el-row>
         <el-row>
           <el-col :span="24">
@@ -509,7 +512,7 @@ const initForm = { id: '', type: 'C', groupId: '', gradeIds: '', name: '', expir
                    useFor: '', storeIds: '', image: '/static/defaultImage/coupon.png', description: '', remarks: '', outRuleForTimer: '', status: "A" };
 
 
-defineOptions({ name: 'CouponIndex' })
+defineOptions({ name: 'CouponCouponIndex' })
 
 
 const qr = ref(null)
@@ -580,6 +583,28 @@ const queryParams = reactive({
         status: ''
       })
 
+function storeItemValid(rule, value, callback) {
+  if (form.value.type == 'P') {
+    if (storeItem.length > 0) {
+      let validCount = 0
+      storeItem.forEach(function (item) {
+        if (item.storeAmount == '' || isNaN(parseFloat(item.storeAmount)) || item.giveAmount == '' || isNaN(parseFloat(item.giveAmount))) {
+          validCount++
+        }
+      })
+      if (validCount > 0) {
+        callback(new Error('请输入预存规则'))
+      } else {
+        callback()
+      }
+    } else {
+      callback(new Error('请添加预存规则'))
+    }
+  } else {
+    callback()
+  }
+}
+
 const rules = reactive({
         type: [
           { required: true, message: "请选择卡券类型", trigger: "blur" },
@@ -641,21 +666,29 @@ const sendFormRef = ref(null)
 const tables = ref(null)
 
 function getList() {
-      loading.value = true;
-      getCouponList(queryParams).then( response => {
-          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
-          total.value = response.data.paginationResponse.totalElements;
-          groupList.length = 0; groupList.push(...(response.data.groupList || []));
-          storeList.length = 0; storeList.push(...(response.data.storeList || []));
-          imagePath.value = response.data.imagePath;
-          typeList.length = 0; typeList.push(...(response.data.typeList || []));
-          statusList.length = 0; statusList.push(...(response.data.statusList || []));
-          gradeOptions.length = 0; gradeOptions.push(...(response.data.gradeList || []));
-          couponUseForList.length = 0; couponUseForList.push(...(response.data.couponUseForList || []));
-          loading.value = false;
-        }
-      );
-    }
+  loading.value = true
+  getCouponList(queryParams).then(response => {
+    const page = (response.data && response.data.paginationResponse) || {}
+    list.length = 0
+    list.push(...(page.content || []))
+    total.value = page.totalElements || 0
+    groupList.length = 0
+    groupList.push(...(response.data.groupList || []))
+    storeList.length = 0
+    storeList.push(...(response.data.storeList || []))
+    imagePath.value = response.data.imagePath
+    typeList.length = 0
+    typeList.push(...(response.data.typeList || []))
+    statusList.length = 0
+    statusList.push(...(response.data.statusList || []))
+    gradeOptions.length = 0
+    gradeOptions.push(...(response.data.gradeList || []))
+    couponUseForList.length = 0
+    couponUseForList.push(...(response.data.couponUseForList || []))
+  }).finally(() => {
+    loading.value = false
+  })
+}
 
 function getTotalMember() {
       getTotalMemberApi().then(response => {
@@ -724,41 +757,39 @@ function cancel() {
     }
 
 function submitForm() {
-      
-      app.$refs["form"].validate(valid => {
-        if (valid) {
-          form.value.storeIds = form.value.storeIds ? form.value.storeIds.join(",") : '';
-          form.value.gradeIds = form.value.gradeIds ? form.value.gradeIds.join(",") : '';
-          form.value.goodsIds = goodsIds.value;
-          // 预存规则
-          if (form.value.type == 'P') {
-              form.value.inRule = '';
-              storeItem.forEach(function(rule){
-                 if (form.value.inRule) {
-                     form.value.inRule = form.value.inRule + ',' + rule.storeAmount + '_' + rule.giveAmount;
-                 } else {
-                     form.value.inRule = rule.storeAmount + '_' + rule.giveAmount;
-                 }
-              })
-          }
-          if (parseInt(form.value.id) > 0) {
-              saveCoupon(form.value).then(response => {
-                modal.msgSuccess("修改成功");
-                open.value = false;
-                getList();
-              });
+  formRef.value?.validate(valid => {
+    if (valid) {
+      form.value.storeIds = form.value.storeIds ? form.value.storeIds.join(',') : ''
+      form.value.gradeIds = form.value.gradeIds ? form.value.gradeIds.join(',') : ''
+      form.value.goodsIds = goodsIds.value
+      if (form.value.type == 'P') {
+        form.value.inRule = ''
+        storeItem.forEach(function (rule) {
+          if (form.value.inRule) {
+            form.value.inRule = form.value.inRule + ',' + rule.storeAmount + '_' + rule.giveAmount
           } else {
-              saveCoupon(form.value).then(response => {
-                modal.msgSuccess("新增成功");
-                open.value = false;
-                getList();
-              });
+            form.value.inRule = rule.storeAmount + '_' + rule.giveAmount
           }
-        } else {
-            modal.msgError("请先完善表单数据项");
-        }
-      });
+        })
+      }
+      if (parseInt(form.value.id) > 0) {
+        saveCoupon(form.value).then(() => {
+          modal.msgSuccess('修改成功')
+          open.value = false
+          getList()
+        })
+      } else {
+        saveCoupon(form.value).then(() => {
+          modal.msgSuccess('新增成功')
+          open.value = false
+          getList()
+        })
+      }
+    } else {
+      modal.msgError('请先完善表单数据项')
     }
+  })
+}
 
 function handleUpdate(row) {
       
@@ -849,35 +880,27 @@ function closeQrDialog() {
     }
 
 function doSendCoupon() {
-      
-      if (sendLoading.value) {
-          return false;
-      }
-      app.$refs["sendForm"].validate(valid => {
-        if (valid) {
-          app.$confirm('您确定要发放卡券吗？', '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }).then(() => {
-              sendLoading.value = true;
-              const userIds = sendForm.memberIds ? sendForm.memberIds.join(",") : '';
-              const param = { couponId: sendForm.couponId, userIds : userIds, object: sendForm.object, num : sendForm.num, remark: sendForm.remark };
-              sendCoupon(param).then(response => {
-                if (response.data) {
-                    openSendCouponDialog.value = false
-                    modal.msgSuccess("卡券发放成功");
-                    sendLoading.value = false;
-                }
-              }).catch(() => {
-                  sendLoading.value = false;
-              });;
-          }).catch(() => {
-              sendLoading.value = false;
-          });
-        }
-      })
+  if (sendLoading.value) {
+    return false
+  }
+  sendFormRef.value.validate(valid => {
+    if (valid) {
+      modal.confirm('您确定要发放卡券吗？').then(() => {
+        sendLoading.value = true
+        const userIds = sendForm.memberIds ? sendForm.memberIds.join(',') : ''
+        const param = { couponId: sendForm.couponId, userIds: userIds, object: sendForm.object, num: sendForm.num, remark: sendForm.remark }
+        sendCoupon(param).then(response => {
+          if (response.data) {
+            openSendCouponDialog.value = false
+            modal.msgSuccess('卡券发放成功')
+          }
+        }).finally(() => {
+          sendLoading.value = false
+        })
+      }).catch(() => {})
     }
+  })
+}
 
 function addStoreItem() {
       storeItem.push( { storeAmount: '', giveAmount: '' } );
@@ -908,11 +931,45 @@ getGroupList();
 getTotalMember();
 </script>
 <style scoped>
-.common-dialog :deep(.el-upload--picture-card) {
-  width: 60px;
-  height: 50px;
-  line-height: 60px;
+.coupon-icon-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
+
+.coupon-icon-upload .form-tips {
+  margin: 0;
+  padding: 0;
+  height: auto;
+  line-height: 1.4;
+}
+
+.coupon-icon-uploader :deep(.el-upload--picture-card) {
+  width: 150px;
+  height: 120px;
+  line-height: 120px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.coupon-icon-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border: none;
+  border-radius: 4px;
+}
+
+.coupon-icon-plus {
+  font-size: 28px;
+  color: #8c939d;
+}
+
 .sp {
   font-size: 12px;
   margin-left: 5px;

@@ -46,13 +46,13 @@
       <el-table-column label="会员ID" align="center" prop="userInfo.id" />
       <el-table-column label="手机号" align="center" width="120" prop="userInfo.mobile">
         <template #default="scope">
-          <span v-if="scope.row.userInfo.mobile">{{ scope.row.userInfo.mobile }}</span>
+          <span v-if="scope.row.userInfo && scope.row.userInfo.mobile">{{ scope.row.userInfo.mobile }}</span>
           <span v-else>-</span>
         </template>
       </el-table-column>
       <el-table-column label="会员名称" align="center" prop="userInfo.name">
         <template #default="scope">
-          <span v-if="scope.row.userInfo.name">
+          <span v-if="scope.row.userInfo && scope.row.userInfo.name">
               <span>{{ scope.row.userInfo.name }}</span>
           </span>
           <span v-else>-</span>
@@ -139,7 +139,7 @@ import { getName } from '@/utils/fuint'
 import { getConfirmLogList, rollbackUserCoupon } from "@/api/coupon/confirmLog";
 
 
-defineOptions({ name: 'ConfirmLogIndex' })
+defineOptions({ name: 'CouponConfirmLogIndex' })
 
 
 const loading = ref(true)
@@ -176,12 +176,12 @@ const tables = ref(null)
 function getList() {
       loading.value = true;
       getConfirmLogList(queryParams).then( response => {
-          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
-          total.value = response.data.paginationResponse.totalElements;
+          const page = (response.data && response.data.paginationResponse) || {};
+          list.length = 0; list.push(...(page.content || []));
+          total.value = page.totalElements || 0;
           typeList.length = 0; typeList.push(...(response.data.typeList || []))
-          loading.value = false;
-        }
-      );
+          
+        }).finally(() => { loading.value = false });
     }
 
 function handleQuery() {
@@ -192,7 +192,7 @@ function handleQuery() {
 function resetQuery() {
       dateRange.value = [];
       queryForm.value?.resetFields();
-      tables.value.sort(defaultSort.prop, defaultSort.order)
+      tables.value?.sort(defaultSort.prop, defaultSort.order)
       handleQuery();
     }
 

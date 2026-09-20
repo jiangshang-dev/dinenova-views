@@ -118,7 +118,7 @@ import { getName } from '@/utils/fuint'
 import { getConfirmInfo, doConfirm } from "@/api/coupon/coupon";
 
 
-defineOptions({ name: 'ConfirmIndex' })
+defineOptions({ name: 'CouponConfirmIndex' })
 
 
 const router = useRouter()
