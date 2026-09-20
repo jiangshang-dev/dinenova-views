@@ -92,7 +92,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="12">
             <el-form-item label="桌子编码" prop="code">
@@ -157,184 +157,154 @@
   </div>
 </template>
 
-<script>
-import FuintQrCode from '@/components/Fuint/QrCode';
-import { getTableList, updateTableStatus, getTableInfo, saveTable } from "@/api/table";
-export default {
-  name: "TableIndex",
-  components: {
-    FuintQrCode
-  },
-  data() {
-    return {
-      // 二维码
-      qr: null,
-      // 二维码对话框
-      openQrCode: false,
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'id', order: 'descending'},
-      // 表单参数
-      form: { id: '', code: '', storeId: '', sort: '', maxPeople: 0, status: "A" },
-      // 店铺列表
-      storeList: [],
-      imagePath: "",
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        code: '',
-        status: ''
-      },
-      // 表单校验
-      rules: {
-        code: [
-          { required: true, message: "桌码不能为空", trigger: "blur" },
-          { min: 2, max: 30, message: '桌码长度必须介于 2 和 30 之间', trigger: 'blur' }
-        ],
-        storeId: [
-          { required: true, message: "所属店铺不能为空", trigger: "blur" },
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getTableList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.storeList = response.data.storeList;
-          this.imagePath = response.data.imagePath;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.code + '"桌码吗？').then(function() {
-        return updateTableStatus(row.id, row.status);
-      }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
-      }).catch(function() {
-        row.status = row.status === "N" ? "A" : "N";
-      });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.operId)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增桌码";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        code: "",
-        description: "",
-        storeId: "",
-        maxPeople: 0,
-        sort: 0,
-        status: "A",
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id) {
-              saveTable(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
-              });
-          } else {
-              saveTable(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
-              });
-          }
-        }
-      });
-    },
-    // 二维码
-    handleQrCode(row) {
-      this.qr = { page: '/pages/category/index', type: "table", id: row.id };
-      this.openQrCode = true;
-    },
-    // 关闭二维码
-    closeDialog() {
-      this.openQrCode = false;
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getTableInfo(id).then(response => {
-        this.form = response.data.tableInfo;
-        this.open = true;
-        this.title = "编辑桌码";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const code = row.code || this.id;
-      this.$modal.confirm('是否确认删除"' + code + '"的数据项？').then(function() {
-        return updateTableStatus(row.id, 'D');
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+<script setup>
+import { ref, reactive } from 'vue'
+import { parseTime, getName } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import FuintQrCode from '@/components/Fuint/QrCode'
+import { getTableList, updateTableStatus, getTableInfo, saveTable } from '@/api/table'
+
+defineOptions({ name: 'TableIndex' })
+
+const qr = ref(null)
+const openQrCode = ref(false)
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'id', order: 'descending' }
+const form = reactive({ id: '', code: '', storeId: '', sort: '', maxPeople: 0, status: 'A' })
+const storeList = ref([])
+const imagePath = ref('')
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  code: '',
+  status: ''
+})
+const rules = {
+  code: [
+    { required: true, message: '桌码不能为空', trigger: 'blur' },
+    { min: 2, max: 30, message: '桌码长度必须介于 2 和 30 之间', trigger: 'blur' }
+  ],
+  storeId: [{ required: true, message: '所属店铺不能为空', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getTableList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    storeList.value = response.data.storeList
+    imagePath.value = response.data.imagePath
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleStatusChange(row) {
+  const text = row.status == 'A' ? '启用' : '禁用'
+  modal.confirm('确认要' + text + '"' + row.code + '"桌码吗？').then(function () {
+    return updateTableStatus(row.id, row.status)
+  }).then(() => {
+    modal.msgSuccess(text + '成功')
+  }).catch(function () {
+    row.status = row.status === 'N' ? 'A' : 'N'
+  })
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.operId)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增桌码'
+}
+
+function reset() {
+  Object.assign(form, {
+    id: '',
+    code: '',
+    description: '',
+    storeId: '',
+    maxPeople: 0,
+    sort: 0,
+    status: 'A'
+  })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveTable(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleQrCode(row) {
+  qr.value = { page: '/pages/category/index', type: 'table', id: row.id }
+  openQrCode.value = true
+}
+
+function closeDialog() {
+  openQrCode.value = false
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getTableInfo(id).then(response => {
+    Object.assign(form, response.data.tableInfo)
+    open.value = true
+    title.value = '编辑桌码'
+  })
+}
+
+function handleDelete(row) {
+  const code = row.code || row.id
+  modal.confirm('是否确认删除"' + code + '"的数据项？').then(function () {
+    return updateTableStatus(row.id, 'D')
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>

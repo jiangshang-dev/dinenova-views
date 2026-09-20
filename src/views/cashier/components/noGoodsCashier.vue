@@ -25,18 +25,22 @@
   </el-dialog>
 </template>
 
-<script>
-export default {
-  name: "noGoodsCashier",
-  props: {
-    showDialog:{
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'noGoodsCashier' })
+
+const props = defineProps({
+showDialog:{
       type:[Boolean],
       default:()=>false
     }
-  },
-  data() {
-    return {
-      // 遮罩层
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+// 遮罩层
       loading: false,
       // 表单参数
       form: {  amount: '', remark: '' },
@@ -47,34 +51,41 @@ export default {
           { pattern: /^[0-9]{1,10}$/, message: `请输入1-10位数字`, trigger: 'blur' }
         ]
       }
-    };
-  },
-  watch: {
-    showDialog(value) {
-      if (value) {
-          this.form.amount = '';
-          this.form.remark = '';
-      }
-    }
-  },
-  methods: {
-    // 取消按钮
-    close() {
-      this.$emit('closeDialog', 'openNoGoodsCashierDialog');
-    },
-    // 重置表单
-    reset() {
-      this.form.amount = '';
-      this.form.remark = '';
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+})
+const { loading, form, rules } = toRefs(state)
+
+function close() {
+
+      emit('closeDialog', 'openNoGoodsCashierDialog');
+    
+}
+
+function reset() {
+
+      form.value.amount = '';
+      form.value.remark = '';
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-            this.$emit('submit', this.form);
+            emit('submit', form.value);
         }
       });
-    }
-  }
-};
+    
+}
+
+watch(() => props.showDialog, (value) => {
+      if (value) {
+          form.value.amount = '';
+          form.value.remark = '';
+      }
+    })
+
+watch(() => props.if, (value) => {
+          form.value.amount = '';
+          form.value.remark = '';
+      })
 </script>

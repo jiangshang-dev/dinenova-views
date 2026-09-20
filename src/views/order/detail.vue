@@ -203,41 +203,50 @@
   </div>
 </template>
 
-<script>
-import { getOrderInfo } from "@/api/order";
-export default {
-  name: "OrderDetail",
-  data() {
-    return {
-      // 遮罩层
-      loading: false,
-      payTypeList: [],
-      payStatusList: [],
-      orderInfo: { payAmount: 0, discount: 0, pointAmount: 0, userInfo: {}, tableInfo: null }
-    };
-  },
-  created() {
-     const orderId = this.$route.query.orderId ? this.$route.query.orderId : ''
-     this.getOrderInfo(orderId)
-  },
-  activated() {
-     const orderId = this.$route.query.orderId ? this.$route.query.orderId : ''
-     this.getOrderInfo(orderId)
-  },
-  methods: {
-    // 查询配置
-    getOrderInfo(orderId) {
-      this.loading = true;
-      getOrderInfo(orderId).then(response => {
-          this.orderInfo = response.data.orderInfo;
-          this.payTypeList = response.data.payTypeList
-          this.payStatusList = response.data.payStatusList
-          this.loading = false;
+<script setup>
+import { onActivated, reactive, ref } from 'vue'
+
+import { useRouter, useRoute } from 'vue-router'
+
+import { getName } from '@/utils/fuint'
+
+import { getOrderInfo as getOrderInfoApi } from "@/api/order";
+
+
+defineOptions({ name: 'OrderDetail' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const loading = ref(false)
+
+const payTypeList = reactive([])
+
+const payStatusList = reactive([])
+
+const orderInfo = reactive({ payAmount: 0, discount: 0, pointAmount: 0, userInfo: {}, tableInfo: null })
+
+const tables = ref(null)
+
+function getOrderInfo(orderId) {
+      loading.value = true;
+      getOrderInfoApi(orderId).then(response => {
+          Object.assign(orderInfo, response.data.orderInfo);
+          payTypeList.length = 0; payTypeList.push(...(response.data.payTypeList || []))
+          payStatusList.length = 0; payStatusList.push(...(response.data.payStatusList || []))
+          loading.value = false;
         }
       );
     }
-  }
-};
+
+const orderId = route.query.orderId ? route.query.orderId : ''
+getOrderInfo(orderId)
+
+onActivated(() => {
+const orderId = route.query.orderId ? route.query.orderId : ''
+getOrderInfo(orderId)
+})
 </script>
 <style rel="stylesheet/scss" lang="scss">
     .main-panel {

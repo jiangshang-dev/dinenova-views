@@ -25,24 +25,23 @@
   </div>
 </template>
 
-<script>
-import errGif from '@/assets/401_images/401.gif'
+<script setup>
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import errGifSrc from '@/assets/401_images/401.gif'
 
-export default {
-  name: 'Page401',
-  data() {
-    return {
-      errGif: errGif + '?' + +new Date()
-    }
-  },
-  methods: {
-    back() {
-      if (this.$route.query.noGoBack) {
-        this.$router.push({ path: '/' })
-      } else {
-        this.$router.go(-1)
-      }
-    }
+defineOptions({ name: 'Page401' })
+
+const route = useRoute()
+const router = useRouter()
+
+const errGif = ref(errGifSrc + '?' + +new Date())
+
+function back() {
+  if (route.query.noGoBack) {
+    router.push({ path: '/' })
+  } else {
+    router.go(-1)
   }
 }
 </script>

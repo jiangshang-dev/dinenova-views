@@ -71,7 +71,7 @@
 
     <!-- 添加或修改菜单对话框 -->
     <el-dialog :title="title" v-model="open" width="680px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="上级菜单">
@@ -160,18 +160,18 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { listMenu, getMenu, delMenu, addMenu, updateMenu } from "@/api/system/menu";
 import Treeselect from "vue3-treeselect";
 import "vue3-treeselect/dist/vue3-treeselect.css";
 import IconSelect from "@/components/IconSelect";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  name: "Menu",
-  components: { Treeselect, IconSelect },
-  data() {
-    return {
-      // 遮罩层
+defineOptions({ name: 'Menu' })
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 显示搜索条件
       showSearch: true,
@@ -206,26 +206,26 @@ export default {
           { required: true, message: "路由地址不能为空", trigger: "blur" }
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 选择图标
-    selected(name) {
-      this.form.icon = name;
-    },
-    // 查询菜单列表
-    getList() {
-      this.loading = true;
-      listMenu(this.queryParams).then(response => {
-        this.menuList = this.handleTree(response.data, "id", "pid", "childrens");
-        this.loading = false;
-      });
-    },
-    // 转换菜单数据结构
-    normalizer(node) {
+})
+const { loading, showSearch, menuList, menuOptions, title, open, isExpandAll, refreshTable, queryParams, form, rules } = toRefs(state)
+
+function selected(name) {
+
+      form.value.icon = name;
+    
+}
+
+function getList() {
+  loading.value = true
+  listMenu(queryParams.value).then(response => {
+    menuList.value = handleTree(response.data, "id", "pid", "childrens")
+  }).finally(() => {
+    loading.value = false
+  })
+}
+
+function normalizer(node) {
+
       if (node.childrens && !node.childrens.length) {
         delete node.childrens;
       }
@@ -234,24 +234,30 @@ export default {
         label: node.name,
         children: node.childrens
       };
-    },
-    // 查询菜单下拉树结构
-    getTreeSelect() {
+    
+}
+
+function getTreeSelect() {
+
       listMenu().then(response => {
-        this.menuOptions = [];
+        menuOptions.value = [];
         const menu = { id: 0, name: '根目录', childrens: [] };
-        menu.childrens = this.handleTree(response.data, "id", "pId", "childrens");
-        this.menuOptions.push(menu);
+        menu.childrens = handleTree(response.data, "id", "pId", "childrens");
+        menuOptions.value.push(menu);
       });
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function reset() {
+
+      form.value = {
         id: undefined,
         parentId: 0,
         name: '',
@@ -261,76 +267,91 @@ export default {
         visible: "0",
         status: "A"
       };
-      this.resetForm("form");
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 新增按钮操作
-    handleAdd(row) {
-      this.reset();
-      this.getTreeSelect();
+      formRef.value?.resetFields();
+    
+}
+
+function handleQuery() {
+
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleAdd(row) {
+
+      reset();
+      getTreeSelect();
       if (row != null && row.id) {
-          this.form.parentId = row.id;
+          form.value.parentId = row.id;
       } else {
-          this.form.parentId = 0;
+          form.value.parentId = 0;
       }
-      this.open = true;
-      this.title = "添加菜单";
-    },
-    // 展开/折叠操作
-    toggleExpandAll() {
-      this.refreshTable = false;
-      this.isExpandAll = !this.isExpandAll;
-      this.$nextTick(() => {
-          this.refreshTable = true;
+      open.value = true;
+      title.value = "添加菜单";
+    
+}
+
+function toggleExpandAll() {
+
+      refreshTable.value = false;
+      isExpandAll.value = !isExpandAll.value;
+      nextTick(() => {
+          refreshTable.value = true;
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      this.getTreeSelect();
+    
+}
+
+function handleUpdate(row) {
+
+      reset();
+      getTreeSelect();
       getMenu(row.id).then(response => {
-        this.form = response.data;
-        this.open = true;
-        this.title = "修改菜单";
+        form.value = response.data;
+        open.value = true;
+        title.value = "修改菜单";
       });
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-            updateMenu(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
+          if (form.value.id) {
+            updateMenu(form.value).then(response => {
+              modal.msgSuccess("修改成功");
+              open.value = false;
+              getList();
             });
           } else {
-            addMenu(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
+            addMenu(form.value).then(response => {
+              modal.msgSuccess("新增成功");
+              open.value = false;
+              getList();
             });
           }
         }
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除名称为"' + row.name + '"的数据项？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      modal.confirm('是否确认删除名称为"' + row.name + '"的数据项？').then(function() {
         return delMenu(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    }
-  }
-};
+    
+}
+
+getList()
 </script>

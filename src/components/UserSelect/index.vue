@@ -1,6 +1,6 @@
 <!-- 会员选择对话框 -->
 <template>
-    <el-dialog class="common-dialog" title="选择会员" :visible="showDialog" @close="close" width="1000px" destroy-on-close>
+    <el-dialog class="common-dialog" title="选择会员" :model-value="showDialog" @close="close" width="1000px" destroy-on-close>
         <div class="user-content">
           <div class="group-list">
             <div class="search">
@@ -12,7 +12,7 @@
               <el-button type="primary" @click="doSearch()">查询</el-button>
             </div>
             <el-tree
-              ref="tree"
+              ref="treeRef"
               :data="groupList"
               show-checkbox
               node-key="id"
@@ -65,103 +65,105 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
-import { searchMembers, getGroupList } from "@/api/member";
-export default {
-    name: "UserSelect",
-    props: {
-      showDialog: {
-        type:[Boolean],
-        default:()=>false
-      },
-      memberInfo: {
-         type:[Object],
-         default:()=>{}
-      },
-      cartList: {
-        type:[Array],
-        default:()=>[]
-      },
-    },
-    watch: {
-      showDialog(value) {
-        if (value) {
-            this.getGroupList();
-            this.memberIds = [];
-            this.memberList = [];
-        }
-      }
-    },
-    data(){
-        return {
-          loading: false,
-          keyword: '',
-          groupIds: [],
-          memberIds: [],
-          groupList: [],
-          memberList: [],
-          defaultProps: {
-            children: 'children',
-            label: 'name'
-          }
-        }
-    },
-    methods: {
-      // 获取会员列表
-      getMemberList() {
-           const app = this;
-           if (app.groupIds.length < 1 && !app.keyword) {
-               app.memberList = [];
-               return false;
-           }
-           const param = { groupIds: app.groupIds.join(','), keyword: app.keyword };
-           app.loading = true;
-           searchMembers(param).then( response => {
-               if (response) {
-                   app.memberList = response.data;
-               }
-               app.loading = false;
-           })
-        },
-        // 获取分组列表
-        getGroupList() {
-          const app = this;
-          getGroupList().then( response => {
-            if (response.data) {
-                app.groupList = response.data;
-            }
-          })
-        },
-        // 选择分组
-        checkGroup() {
-           const app = this;
-           app.groupIds = app.$refs.tree.getCheckedKeys();
-           app.getMemberList();
-        },
-        // 选择会员
-        checkUser(userList) {
-           let arr = [];
-           if (userList) {
-               userList.forEach(function(user) {
-                  arr.push(user.id);
-               })
-           }
-           this.memberIds = arr;
-        },
-        // 查找用户
-        doSearch() {
-          this.getMemberList();
-        },
-        // 关闭对话框
-        close() {
-           this.$emit('closeDialog','selectUser');
-        },
-        // 确定选择会员
-        doSelectUser() {
-           this.$emit('doSelectUser', this.memberIds);
-        }
+<script setup>
+import { ref, reactive, toRefs, watch } from 'vue'
+import { searchMembers, getGroupList as fetchGroupList } from '@/api/member'
+
+defineOptions({ name: 'UserSelect' })
+
+const props = defineProps({
+  showDialog: {
+    type: [Boolean],
+    default: () => false
+  },
+  memberInfo: {
+    type: [Object],
+    default: () => ({})
+  },
+  cartList: {
+    type: [Array],
+    default: () => []
+  },
+})
+
+const emit = defineEmits(['closeDialog', 'doSelectUser'])
+
+const treeRef = ref(null)
+
+const state = reactive({
+  loading: false,
+  keyword: '',
+  groupIds: [],
+  memberIds: [],
+  groupList: [],
+  memberList: [],
+  defaultProps: {
+    children: 'children',
+    label: 'name'
+  }
+})
+const { loading, keyword, groupIds, memberIds, groupList, memberList, defaultProps } = toRefs(state)
+
+function getMemberList() {
+  if (groupIds.value.length < 1 && !keyword.value) {
+    memberList.value = []
+    return false
+  }
+  const param = { groupIds: groupIds.value.join(','), keyword: keyword.value }
+  loading.value = true
+  searchMembers(param).then((response) => {
+    if (response) {
+      memberList.value = response.data
     }
+    loading.value = false
+  })
 }
+
+function loadGroupList() {
+  fetchGroupList().then((response) => {
+    if (response.data) {
+      groupList.value = response.data
+    }
+  })
+}
+
+function checkGroup() {
+  groupIds.value = treeRef.value?.getCheckedKeys() || []
+  getMemberList()
+}
+
+function checkUser(userList) {
+  const arr = []
+  if (userList) {
+    userList.forEach((user) => {
+      arr.push(user.id)
+    })
+  }
+  memberIds.value = arr
+}
+
+function doSearch() {
+  getMemberList()
+}
+
+function close() {
+  emit('closeDialog', 'selectUser')
+}
+
+function doSelectUser() {
+  emit('doSelectUser', memberIds.value)
+}
+
+watch(
+  () => props.showDialog,
+  (value) => {
+    if (value) {
+      loadGroupList()
+      memberIds.value = []
+      memberList.value = []
+    }
+  }
+)
 </script>
 <style lang="scss" scoped>
   .user-content {

@@ -85,7 +85,7 @@
 
     <!-- 添加或修改文章对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
           <el-row>
             <el-col :span="24">
               <el-form-item label="标题" prop="title">
@@ -113,10 +113,10 @@
                   :headers="uploadHeader"
                   :on-success="handleUploadSuccess">
                   <img
-                    v-if="this.form.image"
-                    :src="imagePath + this.form.image"
+                    v-if="form.image"
+                    :src="imagePath + form.image"
                     class="list-img" />
-                  <i v-if="!this.form.image" class="el-icon-plus"></i>
+                  <i v-if="!form.image" class="el-icon-plus"></i>
                 </el-upload>
               </el-form-item>
             </el-col>
@@ -129,7 +129,7 @@
                   v-model="form.storeId"
                   style="width: 260px"
                   placeholder="所属店铺，空则为公共所有">
-                  <el-option :key="0" label="公共所有" v-if="!this.$store.getters.storeId" :value="0" />
+                  <el-option :key="0" label="公共所有" v-if="!storeId" :value="0" />
                   <el-option v-for="storeInfo in storeList" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
                 </el-select>
               </el-form-item>
@@ -168,49 +168,56 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
 import { getArticleList, getArticle, updateStatus, saveArticle } from "@/api/article";
 import { getToken } from '@/utils/auth';
-export default {
-  name: "Article",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非单个禁用
-      single: true,
-      // 非多个禁用
-      multiple: true,
-      // 总条数
-      total: 0,
-      // 图片根目录
-      imagePath: "",
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      // 隐藏上传
-      hideUpload: false,
-      // 上传文件列表
-      uploadFiles: [],
-      uploadHeader: { 'Access-Token' : getToken() },
-      // 文章列表
-      articleList: [],
-      // 店铺列表
-      storeList: [],
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'Article' })
+
+
+const loading = ref(true)
+
+const ids = reactive([])
+
+const single = ref(true)
+
+const multiple = ref(true)
+
+const total = ref(0)
+
+const imagePath = ref("")
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const hideUpload = ref(false)
+
+const uploadFiles = reactive([])
+
+const uploadHeader = reactive({ 'Access-Token' : getToken() })
+
+const articleList = reactive([])
+
+const storeList = reactive([])
+
+const title = ref("")
+
+const open = ref(false)
+
+const queryParams = reactive({
         pageNum: 1,
         pageSize: 10,
         title: '',
         status: ''
-      },
-      // 表单参数
-      form: {
+      })
+
+const form = reactive({
         id: '',
         title: '',
         description: '',
@@ -219,38 +226,36 @@ export default {
         brief: "",
         sort: 0,
         status: "A"
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         title: [
           { required: true, message: "文章标题不能为空", trigger: "blur" }
         ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询文章列表
-    getList() {
-      this.loading = true;
-      getArticleList(this.queryParams).then(response => {
-        this.articleList = response.data.dataList.content;
-        this.total = response.data.dataList.totalElements;
-        this.imagePath = response.data.imagePath
-        this.storeList = response.data.storeList;
-        this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+function getList() {
+      loading.value = true;
+      getArticleList(queryParams).then(response => {
+        articleList.length = 0; articleList.push(...(response.data.dataList.content || []));
+        total.value = response.data.dataList.totalElements;
+        imagePath.value = response.data.imagePath
+        storeList.length = 0; storeList.push(...(response.data.storeList || []));
+        loading.value = false;
       });
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function reset() {
+      Object.assign(form, {
         id: '',
         title: '',
         description: '',
@@ -259,91 +264,91 @@ export default {
         brief: "",
         sort: 0,
         status: "A"
-      };
-      this.resetForm("form");
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.pageNum = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.articleId)
-      this.single = selection.length!=1
-      this.multiple = !selection.length
-    },
-    // 状态修改
-    handleStatusChange(row) {
+      });
+      formRef.value?.resetFields();
+    }
+
+function handleQuery() {
+      queryParams.pageNum = 1;
+      getList();
+    }
+
+function resetQuery() {
+      queryForm.value?.resetFields();
+      handleQuery();
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.articleId) || []))
+      single.value = selection.length!=1
+      multiple.value = !selection.length
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
         return updateStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 图片上传成功
-    handleUploadSuccess(file) {
-      this.form.image = file.data.fileName
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增文章";
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const articleId = row.id || this.ids
+    }
+
+function handleUploadSuccess(file) {
+      form.image = file.data.fileName
+    }
+
+function handleAdd() {
+      reset();
+      open.value = true;
+      title.value = "新增文章";
+    }
+
+function handleUpdate(row) {
+      reset();
+      const articleId = row.id || ids
       getArticle(articleId).then(response => {
-        this.form = response.data.articleInfo;
-        this.open = true;
-        this.title = "修改文章";
+        Object.assign(form, response.data.articleInfo);
+        open.value = true;
+        title.value = "修改文章";
       });
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.image.length < 1) {
-              this.form.image = '/static/defaultImage/none.png';
+          if (form.image.length < 1) {
+              form.image = '/static/defaultImage/none.png';
           }
-          if (this.form.articleId != undefined) {
-              saveArticle(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.articleId != undefined) {
+              saveArticle(form).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveArticle(this.form).then(response => {
-                  this.$modal.msgSuccess("新增成功");
-                  this.open = false;
-                  this.getList();
+              saveArticle(form).then(response => {
+                  modal.msgSuccess("新增成功");
+                  open.value = false;
+                  getList();
               });
           }
         }
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    }
+
+function handleDelete(row) {
       const articleId = row.id;
-      this.$modal.confirm('是否确认删除文章ID为"' + articleId + '"的数据项？').then(function() {
+      modal.confirm('是否确认删除文章ID为"' + articleId + '"的数据项？').then(function() {
         return updateStatus(articleId, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
     }
-  }
-};
+
+getList();
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

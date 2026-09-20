@@ -164,45 +164,61 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { useRouter, useRoute } from 'vue-router'
+
+import { useStore } from 'vuex'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
 import { getGoodsList, updateGoodsStatus } from "@/api/goods";
-export default {
-  name: "GoodsIndex",
-  data() {
-    return {
-      storeId: this.$store.getters.storeId,
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 店铺列表
-      storeOptions: [],
-      // 商品类型
-      typeOptions: [],
-      // 商品分类
-      cateList: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'sort', order: 'descending'},
-      // 表单参数
-      form: { id: '', name: '', logo: '', sort: 0, status: "A" },
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      // 隐藏上传
-      hideUpload: false,
-      // 上传文件列表
-      uploadFiles: [],
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'GoodsIndex' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const store = useStore()
+
+const storeId = store.getters.storeId
+
+const loading = ref(true)
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const showSearch = ref(true)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const storeOptions = reactive([])
+
+const typeOptions = reactive([])
+
+const cateList = reactive([])
+
+const open = ref(false)
+
+const defaultSort = reactive({prop: 'sort', order: 'descending'})
+
+const form = reactive({ id: '', name: '', logo: '', sort: 0, status: "A" })
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const hideUpload = ref(false)
+
+const uploadFiles = reactive([])
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         storeId: '',
@@ -212,94 +228,94 @@ export default {
         goodsNo: '',
         stock: '',
         status: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         name: [
           { required: true, message: "名称不能为空", trigger: "blur" },
           { min: 2, max: 200, message: '名称长度必须介于2 和 200 之间', trigger: 'blur' }
         ],
         logo: [{ required: true, message: "请上传图片", trigger: "blur" }]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询商品列表
-    getList() {
-      this.loading = true;
-      getGoodsList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.typeOptions = response.data.typeList;
-          this.storeOptions = response.data.storeList;
-          this.cateList = response.data.cateList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getGoodsList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          typeOptions.length = 0; typeOptions.push(...(response.data.typeList || []));
+          storeOptions.length = 0; storeOptions.push(...(response.data.storeList || []));
+          cateList.length = 0; cateList.push(...(response.data.cateList || []));
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "上架" : "下架";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
         return updateGoodsStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.$router.push( { path: '/goods/goods/add' } )
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.$router.push( { path: '/goods/goods/edit?goodsId=' + row.id } )
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleAdd() {
+      router.push( { path: '/goods/goods/add' } )
+    }
+
+function handleUpdate(row) {
+      router.push('/goods/goods/edit?goodsId=' + row.id)
+    }
+
+function handleDelete(row) {
       const name = row.name
-      this.$modal.confirm('是否确认删除商品"' + name + '"？').then(function() {
+      modal.confirm('是否确认删除商品"' + name + '"？').then(function() {
         return updateGoodsStatus(row.id, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    handleUploadSuccess (file) {
-      this.form.logo = file.data.fileName
-    },
-    handleRemove (file, fileList) {
+    }
+
+function handleUploadSuccess(file) {
+      form.logo = file.data.fileName
+    }
+
+function handleRemove(file, fileList) {
       setTimeout(() => {
-        this.hideUpload = fileList.length > 0
+        hideUpload.value = fileList.length > 0
       }, 520)
     }
-  }
-};
+
+getList();
 </script>
 

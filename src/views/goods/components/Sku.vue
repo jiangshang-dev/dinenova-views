@@ -20,14 +20,14 @@
           <div class="sku-list-item__layout">
             <span class="span">规格值</span>
             <div class="sku-list-item-tags">
-              <el-tag
-                class="sku-list-item-tag"
-                closable
-                v-for="(subItem, i) in item.child"
-                v-if="subItem.name"
-                @close="removeSkuAttr(index, i)"
-                :key="i">{{ subItem.name }}</el-tag
-              >
+              <template v-for="(subItem, i) in (item.child || [])" :key="i">
+                <el-tag
+                  v-if="subItem && subItem.name"
+                  class="sku-list-item-tag"
+                  closable
+                  @close="removeSkuAttr(index, i)"
+                >{{ subItem.name }}</el-tag>
+              </template>
               <el-button
                 size="small"
                 icon="el-icon-plus"
@@ -123,16 +123,19 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref, watch } from 'vue'
+
+import { ElMessageBox } from 'element-plus'
+import modal from '@/plugins/modal'
 import { getToken } from '@/utils/auth';
 import { saveSpecName, saveSpecValue, deleteSpec, deleteSpecValue } from "@/api/goods";
-export default {
-  name: 'Sku',
-  model: {
-    prop: "skuData",
-    event: "change",
-  },
-  props: {
+
+
+defineOptions({ name: 'Sku' })
+
+
+const props = defineProps({
     goodsId: {
       type: String,
       default: "",
@@ -149,145 +152,131 @@ export default {
       type: Boolean,
       default: false,
     },
-  },
-  data() {
-    return {
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      uploadHeader: { 'Access-Token' : getToken() },
-      // 批量设置
-      batch: { price: '', skuNo: '', linePrice: '', weight: '', stock: '' }
-    };
-  },
-  watch: {
-    "skuData.attrList": {
-      handler() {
-        if (!this.disabled) {
-            this.$set(this.skuData, "skuList", this.getTable());
-        }
-      },
-      deep: true,
-      immediate: true,
-    },
-  },
-  methods: {
-    // 添加规格行
-    addSkuRow(i) {
-      this.$prompt("请输入规格名称", "添加规格", {
+  })
+
+const emit = defineEmits(['skuChange'])
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const uploadHeader = reactive({ 'Access-Token' : getToken() })
+
+const batch = reactive({ price: '', skuNo: '', linePrice: '', weight: '', stock: '' })
+
+function addSkuRow(i) {
+      ElMessageBox.prompt("请输入规格名称", "添加规格", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         inputPattern: /\S+/,
         inputErrorMessage: "规格名称不能为空",
         closeOnClickModal: false,
       }).then(({ value }) => {
-          saveSpecName({ goodsId: this.goodsId, name: value }).then(response => {
-            this.skuData.attrList.push({
+          saveSpecName({ goodsId: props.goodsId, name: value }).then(response => {
+            props.skuData.attrList.push({
                 id: response.data.id,
                 name: value,
                 child: [],
             });
-            this.$emit("skuChange", this.skuData);
+            emit("skuChange", props.skuData);
           })
       });
-    },
-    // 删除规格行
-    removeSkuRow(i) {
-      const app = this
-      app.$modal.confirm('确认删除该规格吗？').then(function() {
-          deleteSpec({ goodsId: app.goodsId, specName: app.skuData.attrList[i].name }).then(response => {
-              app.skuData.attrList.splice(i, 1);
-              app.$emit("skuChange", app.skuData);
+    }
+
+function removeSkuRow(i) {
+      modal.confirm('确认删除该规格吗？').then(function() {
+          deleteSpec({ goodsId: props.goodsId, specName: props.skuData.attrList[i].name }).then(response => {
+              props.skuData.attrList.splice(i, 1);
+              emit("skuChange", props.skuData);
           })
       });
-    },
-    // 删除规格属性值
-    removeSkuAttr(a, b) {
-      const app = this
-      app.$modal.confirm('确认删除该规格值吗？').then(function() {
-          deleteSpecValue({ id: app.skuData.attrList[a].child[b].id }).then(response => {
-              app.skuData.attrList[a].child.splice(b, 1);
-              app.$emit("skuChange", app.skuData);
+    }
+
+function removeSkuAttr(a, b) {
+      modal.confirm('确认删除该规格值吗？').then(function() {
+          deleteSpecValue({ id: props.skuData.attrList[a].child[b].id }).then(response => {
+              props.skuData.attrList[a].child.splice(b, 1);
+              emit("skuChange", props.skuData);
           })
       });
-    },
-    // 添加规格属性值
-    addSkuAttr(i) {
-      this.$prompt("请输入规格值", "添加规格值", {
+    }
+
+function addSkuAttr(i) {
+      ElMessageBox.prompt("请输入规格值", "添加规格值", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         inputPattern: /\S+/,
         inputErrorMessage: "规格值不能为空",
         closeOnClickModal: false,
       }).then(({ value }) => {
-          saveSpecValue({ goodsId: this.goodsId, specName: this.skuData.attrList[i].name, value: value }).then(response => {
-              this.skuData.attrList[i].child.push({
+          saveSpecValue({ goodsId: props.goodsId, specName: props.skuData.attrList[i].name, value: value }).then(response => {
+              props.skuData.attrList[i].child.push({
                  id: response.data.id,
                  name: value,
                  value: value,
               });
-              this.$emit("skuChange", this.skuData);
+              emit("skuChange", props.skuData);
           })
       });
-    },
-    // 批量设置sku
-    batchSetSku() {
-      const app = this;
-      app.skuData.skuList.forEach(function(skuInfo, index) {
-         if (app.batch.skuNo) {
-             skuInfo.skuNo = app.batch.skuNo + index;
+    }
+
+function batchSetSku() {
+      props.skuData.skuList.forEach(function(skuInfo, index) {
+         if (batch.skuNo) {
+             skuInfo.skuNo = batch.skuNo + index;
          }
-         if (app.batch.price) {
-             if (app.batch.price > 0) {
-                 skuInfo.price = app.batch.price;
+         if (batch.price) {
+             if (batch.price > 0) {
+                 skuInfo.price = batch.price;
              } else {
-                 app.$modal.alert("商品价格须大于0！");
+                 modal.alert("商品价格须大于0！");
                  return false;
              }
          }
-         if (app.batch.linePrice) {
-             if (app.batch.linePrice >= 0) {
-                 skuInfo.linePrice = app.batch.linePrice;
+         if (batch.linePrice) {
+             if (batch.linePrice >= 0) {
+                 skuInfo.linePrice = batch.linePrice;
              } else {
-                 app.$modal.alert("商品划线价格须大于等于0！");
+                 modal.alert("商品划线价格须大于等于0！");
                  return false;
              }
          }
-         if (app.batch.weight) {
-             if (app.batch.weight >= 0) {
-                 skuInfo.weight = app.batch.weight;
+         if (batch.weight) {
+             if (batch.weight >= 0) {
+                 skuInfo.weight = batch.weight;
              } else {
-                 app.$modal.alert("商品重量须大于等于0！");
+                 modal.alert("商品重量须大于等于0！");
                  return false;
              }
          }
-         if (app.batch.stock) {
-             if (app.batch.stock >= 0) {
-                 skuInfo.stock = app.batch.stock;
+         if (batch.stock) {
+             if (batch.stock >= 0) {
+                 skuInfo.stock = batch.stock;
              } else {
-                 app.$modal.alert("商品库存须大于等于0！");
+                 modal.alert("商品库存须大于等于0！");
                  return false;
              }
          }
       })
-    },
-    // 生成随机条码
-    createGoodsSn() {
+    }
+
+function createGoodsSn() {
       let sn = (Math.random() + 1) * 10000000000000;
-      this.batch.skuNo = sn.toFixed(0);
-    },
-    onUploadImgSuccess(file, index) {
+      batch.skuNo = sn.toFixed(0);
+    }
+
+function onUploadImgSuccess(file, index) {
       if (!file) {
           return;
       }
-      this.uploadDomain = file.data.domain;
-      this.skuData.skuList[index].logo = file.data.fileName
-      this.$emit("skuChange", this.skuData);
-    },
-    getTable() {
+      props.uploadDomain = file.data.domain;
+      props.skuData.skuList[index].logo = file.data.fileName
+      emit("skuChange", props.skuData);
+    }
+
+function getTable() {
       const table = [];
       const attrValueAry = [];
       const arr = [];
-      const tmpSkuData = (this.skuData.attrList || []).filter(
+      const tmpSkuData = (props.skuData.attrList || []).filter(
         (d) => d.name != "" && d.child.length > 0
       );
       if (!tmpSkuData || tmpSkuData.length == 0) {
@@ -325,8 +314,8 @@ export default {
         console.log('specList = ', specList);
 
         findItem =
-          this.skuData.initSkuList.find((item) => {
-            return specIds.includes(item.specIds);
+          (props.skuData.initSkuList || []).find((item) => {
+            return String(item.specIds) === specIds;
           }) || {};
 
         tableItem = Object.assign(
@@ -350,9 +339,17 @@ export default {
       });
 
       return table;
-    },
+    }
+
+watch(
+  () => props.skuData.attrList,
+  () => {
+    if (!props.disabled) {
+      props.skuData.skuList = getTable()
+    }
   },
-};
+  { deep: true, immediate: true }
+)
 </script>
 
 <style lang="scss" scoped>

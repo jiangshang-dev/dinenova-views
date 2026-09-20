@@ -44,13 +44,17 @@
     </el-dialog>
   </div>
 </template>
-<script>
-export default {
-  inheritAttrs: false,
-  props: ['showFileName'],
-  data() {
-    return {
-      formData: {
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'CodeTypeDialog' })
+
+const props = defineProps(['showFileName'])
+
+const emit = defineEmits([])
+
+const state = reactive({
+formData: {
         fileName: undefined,
         type: 'file'
       },
@@ -73,30 +77,35 @@ export default {
         label: '弹窗',
         value: 'dialog'
       }]
-    }
-  },
-  computed: {
-  },
-  watch: {},
-  mounted() {},
-  methods: {
-    onOpen() {
-      if (this.showFileName) {
-        this.formData.fileName = `${+new Date()}.vue`
+})
+const { formData, rules, typeOptions } = toRefs(state)
+
+function onOpen() {
+
+      if (props.showFileName) {
+        formData.value.fileName = `${+new Date()}.vue`
       }
-    },
-    onClose() {
-    },
-    close(e) {
-      this.$emit('update:visible', false)
-    },
-    handleConfirm() {
-      this.$refs.elForm.validate(valid => {
+    
+}
+
+function onClose() {
+
+    
+}
+
+function close(e) {
+
+      emit('update:visible', false)
+    
+}
+
+function handleConfirm() {
+
+      elFormRef.value.validate(valid => {
         if (!valid) return
-        this.$emit('confirm', { ...this.formData })
-        this.close()
+        emit('confirm', { ...formData.value })
+        close()
       })
-    }
-  }
+    
 }
 </script>

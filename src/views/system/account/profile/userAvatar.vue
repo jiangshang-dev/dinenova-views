@@ -51,21 +51,23 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import store from "@/store";
 import { VueCropper } from "vue-cropper";
 import { uploadAvatar } from "@/api/system/account";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  components: { VueCropper },
-  props: {
-    user: {
+defineOptions({ name: 'userAvatar' })
+
+const props = defineProps({
+user: {
       type: Object
     }
-  },
-  data() {
-    return {
-      // 是否显示弹出层
+})
+
+const state = reactive({
+// 是否显示弹出层
       open: false,
       // 是否显示cropper
       visible: false,
@@ -79,70 +81,87 @@ export default {
         fixedBox: true // 固定截图框大小 不允许改变
       },
       previews: {}
-    };
-  },
-  methods: {
-    // 编辑头像
-    editCropper() {
-      this.open = true;
-    },
-    // 打开弹出层结束时的回调
-    modalOpened() {
-      this.visible = true;
-    },
-    // 覆盖默认的上传行为
-    requestUpload() {
-    },
-    // 向左旋转
-    rotateLeft() {
-      this.$refs.cropper.rotateLeft();
-    },
-    // 向右旋转
-    rotateRight() {
-      this.$refs.cropper.rotateRight();
-    },
-    // 图片缩放
-    changeScale(num) {
+})
+const { open, visible, title, options, previews } = toRefs(state)
+
+function editCropper() {
+
+      open.value = true;
+    
+}
+
+function modalOpened() {
+
+      visible.value = true;
+    
+}
+
+function requestUpload() {
+
+    
+}
+
+function rotateLeft() {
+
+      cropperRef.value.rotateLeft();
+    
+}
+
+function rotateRight() {
+
+      cropperRef.value.rotateRight();
+    
+}
+
+function changeScale(num) {
+
       num = num || 1;
-      this.$refs.cropper.changeScale(num);
-    },
-    // 上传预处理
-    beforeUpload(file) {
+      cropperRef.value.changeScale(num);
+    
+}
+
+function beforeUpload(file) {
+
       if (file.type.indexOf("image/") == -1) {
-        this.$modal.msgError("文件格式错误，请上传图片类型,如：JPG，PNG后缀的文件。");
+        modal.msgError("文件格式错误，请上传图片类型,如：JPG，PNG后缀的文件。");
       } else {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = () => {
-          this.options.img = reader.result;
+          options.value.img = reader.result;
         };
       }
-    },
-    // 上传图片
-    uploadImg() {
-      this.$refs.cropper.getCropBlob(data => {
+    
+}
+
+function uploadImg() {
+
+      cropperRef.value.getCropBlob(data => {
         let formData = new FormData();
         formData.append("avatarfile", data);
         uploadAvatar(formData).then(response => {
-          this.open = false;
-          this.options.img = import.meta.env.VUE_APP_BASE_API + response.imgUrl;
-          store.commit('SET_AVATAR', this.options.img);
-          this.$modal.msgSuccess("修改成功");
-          this.visible = false;
+          open.value = false;
+          options.value.img = import.meta.env.VUE_APP_BASE_API + response.imgUrl;
+          store.commit('SET_AVATAR', options.value.img);
+          modal.msgSuccess("修改成功");
+          visible.value = false;
         });
       });
-    },
-    // 实时预览
-    realTime(data) {
-      this.previews = data;
-    },
-    // 关闭窗口
-    closeDialog() {
-      this.options.img = store.getters.avatar
-      this.visible = false;
-    }
-  }
-};
+    
+}
+
+function realTime(data) {
+
+      previews.value = data;
+    
+}
+
+function closeDialog() {
+
+      options.value.img = store.getters.avatar
+      visible.value = false;
+    
+}
 </script>
 <style scoped lang="scss">
 .user-info-head {

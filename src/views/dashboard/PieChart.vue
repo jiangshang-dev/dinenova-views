@@ -1,16 +1,17 @@
 <template>
-  <div :class="className" :style="{height:height,width:width}" />
+  <div ref="chartEl" :class="className" :style="{height:height,width:width}" />
 </template>
 
-<script>
+<script setup>
 import * as echarts from 'echarts'
 import 'echarts/theme/macarons'
-import resize from './mixins/resize'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useChartResize } from './composables/useChartResize'
 
-export default {
-  mixins: [resize],
-  props: {
-    className: {
+defineOptions({ name: 'PieChart' })
+
+const props = defineProps({
+className: {
       type: String,
       default: 'chart'
     },
@@ -22,29 +23,17 @@ export default {
       type: String,
       default: '300px'
     }
-  },
-  data() {
-    return {
-      chart: null
-    }
-  },
-  mounted() {
-    this.$nextTick(() => {
-      this.initChart()
-    })
-  },
-  beforeUnmount() {
-    if (!this.chart) {
-      return
-    }
-    this.chart.dispose()
-    this.chart = null
-  },
-  methods: {
-    initChart() {
-      this.chart = echarts.init(this.$el, 'macarons')
+})
 
-      this.chart.setOption({
+const chartEl = ref(null)
+let chart = null
+useChartResize(() => chart)
+
+function initChart() {
+
+      chart = echarts.init(chartEl.value, 'macarons')
+
+      chart.setOption({
         tooltip: {
           trigger: 'item',
           formatter: '{a} <br/>{b} : {c} ({d}%)'
@@ -73,7 +62,18 @@ export default {
           }
         ]
       })
-    }
-  }
+    
 }
+
+onMounted(() => {
+  nextTick(() => {
+    initChart()
+  })
+})
+
+onBeforeUnmount(() => {
+  if (!chart) return
+  chart.dispose()
+  chart = null
+})
 </script>

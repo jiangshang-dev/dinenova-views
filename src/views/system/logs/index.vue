@@ -53,7 +53,7 @@
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
-    <el-table ref="tables" v-loading="loading" :data="list" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+    <el-table ref="tables" v-loading="loading" :data="listData" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
       <el-table-column label="ID" prop="id" width="80" />
       <el-table-column label="操作内容" align="center" prop="module" width="200" :show-overflow-tooltip="true" />
       <el-table-column label="耗时" align="center" prop="timeConsuming" />
@@ -118,97 +118,83 @@
   </div>
 </template>
 
-<script>
-import { list, delOperlog } from "@/api/system/logs";
-export default {
-  name: "Logs",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 日期范围
-      dateRange: [],
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: {},
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        keyword: '',
-        accountName: '',
-        status: 'A'
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      list(this.addDateRange(this.queryParams, this.dateRange)).then( response => {
-          this.list = response.data.content;
-          this.total = response.data.totalElements;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.queryParams.accountName = '';
-      this.queryParams.keyword = '';
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.operId)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 详细按钮操作
-    handleView(row) {
-      this.open = true;
-      this.form = row;
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const operIds = row.operId || this.ids;
-      this.$modal.confirm('是否确认删除日志编号为"' + operIds + '"的数据项？').then(function() {
-        return delOperlog(operIds);
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
-    }
-  }
-};
+<script setup>
+import { ref, reactive } from 'vue'
+import modal from '@/plugins/modal'
+import { addDateRange, parseTime } from '@/utils/fuint'
+import { list, delOperlog } from '@/api/system/logs'
+
+defineOptions({ name: 'Logs' })
+
+const loading = ref(true)
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const listData = ref([])
+const open = ref(false)
+const dateRange = ref([])
+const defaultSort = reactive({ prop: 'createTime', order: 'descending' })
+const form = ref({})
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  keyword: '',
+  accountName: '',
+  status: 'A'
+})
+const queryForm = ref(null)
+const tables = ref(null)
+
+function getList() {
+  loading.value = true
+  list(addDateRange(queryParams, dateRange.value)).then((response) => {
+    listData.value = response.data.content
+    total.value = response.data.totalElements
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  dateRange.value = []
+  queryParams.accountName = ''
+  queryParams.keyword = ''
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map((item) => item.operId)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleView(row) {
+  open.value = true
+  form.value = row
+}
+
+function handleDelete(row) {
+  const operIds = row.operId || ids.value
+  modal.confirm('是否确认删除日志编号为"' + operIds + '"的数据项？').then(function () {
+    return delOperlog(operIds)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>
 

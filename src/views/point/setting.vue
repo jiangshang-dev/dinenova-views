@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <div class="main-panel">
-      <el-form ref="form" class="content" :model="form" :rules="rules" label-width="200px">
+      <el-form ref="formRef" class="content" :model="form" :rules="rules" label-width="200px">
         <el-row>
           <el-col :span="12">
             <el-form-item class="recharge-item" prop="pointNeedConsume" label="返1积分所需消费金额">
@@ -42,75 +42,70 @@
   </div>
 </template>
 
-<script>
-import { getSettingInfo, saveSetting } from "@/api/point";
+<script setup>
+import { ref, reactive, onActivated } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import modal from '@/plugins/modal'
+import { getSettingInfo, saveSetting } from '@/api/point'
 
-export default {
-  name: "PointSetting",
-  data() {
-    return {
-      // 遮罩层
-      loading: false,
-      // 表单参数
-      form: { pointNeedConsume: '', canUsedAsMoney: 'false', exchangeNeedPoint: '', rechargePointSpeed: '', status: 'A' },
-      // 表单校验
-      rules: {
-        pointNeedConsume: [
-          { required: true, message: "请输入", trigger: "blur" },
-          { pattern: /^[0-9]*$$/ , message: `必须输入正整数`, trigger: 'blur' }
-        ],
-        canUsedAsMoney: [
-          { required: true, message: "请输入", trigger: "blur" }
-        ],
-        exchangeNeedPoint: [
-          { required: true, message: "请输入", trigger: "blur" },
-          { pattern: /^[0-9]*$/ , message: `正整数或含一位小数数字`, trigger: 'blur' }
-        ],
-        rechargePointSpeed: [
-          { required: true, message: "请输入", trigger: "blur" },
-          { pattern: /^[+]?((\d*(\.\d{1,1})$)|([1-9]\d*$))/ , message: `正整数或含一位小数数字`, trigger: 'blur' }
-        ],
-      }
-    };
-  },
-  created() {
-    this.getSettingInfo();
-  },
-  activated() {
-    this.getSettingInfo();
-  },
-  methods: {
-    // 查询账户列表
-    getSettingInfo() {
-      this.loading = true;
-      getSettingInfo(this.queryParams).then(response => {
-          this.form.pointNeedConsume = response.data.pointNeedConsume;
-          this.form.canUsedAsMoney = response.data.canUsedAsMoney;
-          this.form.exchangeNeedPoint = response.data.exchangeNeedPoint;
-          this.form.rechargePointSpeed = response.data.rechargePointSpeed;
-          this.form.status = response.data.status;
-          this.loading = false;
-        }
-      );
-    },
-    // 取消按钮
-    cancel() {
-      this.$store.dispatch('tagsView/delView', this.$route)
-      this.$router.push( { path: '/point/list' } );
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-            saveSetting(this.form).then(response => {
-              this.$modal.msgSuccess("保存成功");
-              this.getSettingInfo();
-            });
-        }
-      });
+defineOptions({ name: 'PointSetting' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+
+const loading = ref(false)
+const form = reactive({ pointNeedConsume: '', canUsedAsMoney: 'false', exchangeNeedPoint: '', rechargePointSpeed: '', status: 'A' })
+const rules = {
+  pointNeedConsume: [
+    { required: true, message: '请输入', trigger: 'blur' },
+    { pattern: /^[0-9]*$$/, message: '必须输入正整数', trigger: 'blur' }
+  ],
+  canUsedAsMoney: [{ required: true, message: '请输入', trigger: 'blur' }],
+  exchangeNeedPoint: [
+    { required: true, message: '请输入', trigger: 'blur' },
+    { pattern: /^[0-9]*$/, message: '正整数或含一位小数数字', trigger: 'blur' }
+  ],
+  rechargePointSpeed: [
+    { required: true, message: '请输入', trigger: 'blur' },
+    { pattern: /^[+]?((\d*(\.\d{1,1})$)|([1-9]\d*$))/, message: '正整数或含一位小数数字', trigger: 'blur' }
+  ]
+}
+const formRef = ref(null)
+
+function getSettingInfoFn() {
+  loading.value = true
+  getSettingInfo(undefined).then(response => {
+    form.pointNeedConsume = response.data.pointNeedConsume
+    form.canUsedAsMoney = response.data.canUsedAsMoney
+    form.exchangeNeedPoint = response.data.exchangeNeedPoint
+    form.rechargePointSpeed = response.data.rechargePointSpeed
+    form.status = response.data.status
+    loading.value = false
+  })
+}
+
+function cancel() {
+  store.dispatch('tagsView/delView', route)
+  router.push({ path: '/point/list' })
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveSetting(form).then(() => {
+        modal.msgSuccess('保存成功')
+        getSettingInfoFn()
+      })
     }
-  }
-};
+  })
+}
+
+getSettingInfoFn()
+onActivated(() => {
+  getSettingInfoFn()
+})
 </script>
 <style rel="stylesheet/scss" lang="scss">
 .main-panel {

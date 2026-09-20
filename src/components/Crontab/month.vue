@@ -33,82 +33,45 @@
     </el-form>
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            radioValue: 1,
-            cycle01: 1,
-            cycle02: 2,
-            average01: 1,
-            average02: 1,
-            checkboxList: [],
-            checkNum: this.check
-        }
-    },
-    name: 'crontab-month',
-    props: ['check', 'cron'],
-    methods: {
-        // 单选按钮值变化时
-        radioChange() {
-            switch (this.radioValue) {
-                case 1:
-                    this.$emit('update', 'month', '*');
-                    break;
-                case 2:
-                    this.$emit('update', 'month', this.cycleTotal);
-                    break;
-                case 3:
-                    this.$emit('update', 'month', this.averageTotal);
-                    break;
-                case 4:
-                    this.$emit('update', 'month', this.checkboxString);
-                    break;
-            }
-        },
-        // 周期两个值变化时
-        cycleChange() {
-            if (this.radioValue == '2') {
-                this.$emit('update', 'month', this.cycleTotal);
-            }
-        },
-        // 平均两个值变化时
-        averageChange() {
-            if (this.radioValue == '3') {
-                this.$emit('update', 'month', this.averageTotal);
-            }
-        },
-        // checkbox值变化时
-        checkboxChange() {
-            if (this.radioValue == '4') {
-                this.$emit('update', 'month', this.checkboxString);
-            }
-        }
-    },
-    watch: {
-        'radioValue': 'radioChange',
-        'cycleTotal': 'cycleChange',
-        'averageTotal': 'averageChange',
-        'checkboxString': 'checkboxChange'
-    },
-    computed: {
-        // 计算两个周期值
-        cycleTotal: function () {
-            const cycle01 = this.checkNum(this.cycle01, 1, 11)
-            const cycle02 = this.checkNum(this.cycle02, cycle01 ? cycle01 + 1 : 2, 12)
-            return cycle01 + '-' + cycle02;
-        },
-        // 计算平均用到的值
-        averageTotal: function () {
-            const average01 = this.checkNum(this.average01, 1, 11)
-            const average02 = this.checkNum(this.average02, 1, 12 - average01 || 0)
-            return average01 + '/' + average02;
-        },
-        // 计算勾选的checkbox值合集
-        checkboxString: function () {
-            let str = this.checkboxList.join();
-            return str == '' ? '*' : str;
-        }
-    }
+<script setup>
+import { ref, computed, watch } from 'vue'
+defineOptions({ name: 'crontab-month' })
+const props = defineProps(['check', 'cron'])
+const emit = defineEmits(['update'])
+const radioValue = ref(1)
+const cycle01 = ref(1)
+const cycle02 = ref(2)
+const average01 = ref(1)
+const average02 = ref(1)
+const checkboxList = ref([])
+defineExpose({ radioValue, cycle01, cycle02, average01, average02, checkboxList })
+const cycleTotal = computed(() => {
+  const c1 = props.check(cycle01.value, 1, 11)
+  const c2 = props.check(cycle02.value, c1 ? c1 + 1 : 2, 12)
+  return c1 + '-' + c2
+})
+const averageTotal = computed(() => {
+  const a1 = props.check(average01.value, 1, 11)
+  const a2 = props.check(average02.value, 1, 12 - a1 || 0)
+  return a1 + '/' + a2
+})
+const checkboxString = computed(() => {
+  const str = checkboxList.value.join()
+  return str == '' ? '*' : str
+})
+function radioChange() {
+  switch (radioValue.value) {
+    case 1: emit('update', 'month', '*'); break
+    case 2: emit('update', 'month', cycleTotal.value); break
+    case 3: emit('update', 'month', averageTotal.value); break
+    case 4: emit('update', 'month', checkboxString.value); break
+  }
 }
+function cycleChange() { if (radioValue.value == 2) emit('update', 'month', cycleTotal.value) }
+function averageChange() { if (radioValue.value == 3) emit('update', 'month', averageTotal.value) }
+function checkboxChange() { if (radioValue.value == 4) emit('update', 'month', checkboxString.value) }
+watch(radioValue, radioChange)
+watch(cycleTotal, cycleChange)
+watch(averageTotal, averageChange)
+watch(checkboxString, checkboxChange)
 </script>

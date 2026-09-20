@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <h4 class="form-header h4">基本信息</h4>
-    <el-form ref="form" :model="form" label-width="80px">
+    <el-form ref="formRef" :model="form" label-width="80px">
       <el-row>
         <el-col :span="8" :offset="2">
           <el-form-item label="用户昵称" prop="nickName">
@@ -45,14 +45,19 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import tab from '@/plugins/tab'
 import { getAuthRole, updateAuthRole } from "@/api/system/account";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import modal from '@/plugins/modal'
 
-export default {
-  name: "AuthRole",
-  data() {
-    return {
-       // 遮罩层
+defineOptions({ name: 'AuthRole' })
+
+const router = useRouter()
+const route = useRoute()
+const state = reactive({
+// 遮罩层
       loading: true,
       // 分页信息
       total: 0,
@@ -64,54 +69,42 @@ export default {
       roles: [],
       // 用户信息
       form: {}
-    };
-  },
-  created() {
-    const userId = this.$route.params && this.$route.params.userId;
-    if (userId) {
-      this.loading = true;
-      getAuthRole(userId).then((response) => {
-        this.form = response.user;
-        this.roles = response.roles;
-        this.total = this.roles.length;
-        this.$nextTick(() => {
-          this.roles.forEach((row) => {
-            if (row.flag) {
-              this.$refs.table.toggleRowSelection(row);
-            }
-          });
-        });
-        this.loading = false;
-      });
-    }
-  },
-  methods: {
-    /** 单击选中行数据 */
-    clickRow(row) {
-      this.$refs.table.toggleRowSelection(row);
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.roleIds = selection.map((item) => item.roleId);
-    },
-    // 保存选中的数据编号
-    getRowKey(row) {
+})
+const { loading, total, page, pageSize, roleIds, roles, form } = toRefs(state)
+
+function clickRow(row) {
+
+      tableRef.value.toggleRowSelection(row);
+    
+}
+
+function handleSelectionChange(selection) {
+
+      roleIds.value = selection.map((item) => item.roleId);
+    
+}
+
+function getRowKey(row) {
+
       return row.roleId;
-    },
-    /** 提交按钮 */
-    submitForm() {
-      const userId = this.form.userId;
-      const roleIds = this.roleIds.join(",");
+    
+}
+
+function submitForm() {
+
+      const userId = form.value.userId;
+      const roleIds = roleIds.value.join(",");
       updateAuthRole({ userId: userId, roleIds: roleIds }).then((response) => {
-        this.$modal.msgSuccess("授权成功");
-        this.close();
+        modal.msgSuccess("授权成功");
+        close();
       });
-    },
-    /** 关闭按钮 */
-    close() {
+    
+}
+
+function close() {
+
       const obj = { path: "/system/user" };
-      this.$tab.closeOpenPage(obj);
-    },
-  },
-};
+      tab.closeOpenPage(obj);
+    
+}
 </script>

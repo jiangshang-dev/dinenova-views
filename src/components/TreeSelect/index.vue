@@ -12,11 +12,13 @@
     </el-option>
   </el-select>
 </template>
-<script>
-export default {
-  name: "TreeSelect",
-  props: {
-    // 配置项
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'TreeSelect' })
+
+const props = defineProps({
+// 配置项
     props: {
       type: Object,
       default: () => {
@@ -63,98 +65,99 @@ export default {
       type: Boolean,
       default: false
     }
-  },
-  data() {
-    return {
-      resultValue: [], // 传给父组件的数组对象值
-      valueName: this.multiple ? [] : '' // 输入框显示值
-    }
-  },
-  watch: {
-    value() {
-      this.resultValue = this.multiple ? this.valueMultiple : this.value;   // 初始值
-      this.initHandle()
-    }
-  },
-  mounted() {
-    this.resultValue = this.multiple ? this.valueMultiple : this.value;   // 初始值
-    this.initHandle();
-  },
-  methods: {
-    // 初始化显示
-    initHandle() {
-      if (this.resultValue) {
-        if (this.multiple) {
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+resultValue: [], // 传给父组件的数组对象值
+      valueName: props.multiple ? [] : '' // 输入框显示值
+})
+const { resultValue, valueName } = toRefs(state)
+
+function initHandle() {
+
+      if (resultValue.value) {
+        if (props.multiple) {
           // 多选
-          this.resultValue.forEach(item => this.valueName.push(item.name));
+          resultValue.value.forEach(item => valueName.value.push(item.name));
         } else {
           // 单选
-          this.valueName = this.resultValue.name;
+          valueName.value = resultValue.value.name;
         }
       }
-      this.initScroll()
-    },
-    // 初始化滚动条
-    initScroll() {
-      this.$nextTick(() => {
+      initScroll()
+    
+}
+
+function initScroll() {
+
+      nextTick(() => {
         let scrollWrap = document.querySelectorAll('.el-scrollbar .el-select-dropdown__wrap')[0]
         let scrollBar = document.querySelectorAll('.el-scrollbar .el-scrollbar__bar')
         scrollWrap.style.cssText = 'margin: 0px; max-height: none; overflow: hidden;'
         scrollBar.forEach(ele => ele.style.width = 0)
       })
-    },
-    // 切换选项
-    handleNodeClick(node) {
+    
+}
+
+function handleNodeClick(node) {
+
       // 设置点击叶子节点后被选中 可以更改为点击父节点也生效
       if (node.children == null || node.children == undefined || node.children.length < 1) {
-        if (this.multiple) {
+        if (props.multiple) {
           // 多选（判重后添加）
           let num = 0;
-          this.valueName.forEach(item => {
-            item == node[this.props.label] ? num++ : num;
+          valueName.value.forEach(item => {
+            item == node[props.props.label] ? num++ : num;
           })
           if (num == 0) {
-            this.valueName.push(node[this.props.label]); // 输入框显示值
-            this.resultValue.push(node);
+            valueName.value.push(node[props.props.label]); // 输入框显示值
+            resultValue.value.push(node);
           }
         } else {
           // 单选
-          this.$refs.selectTree.blur();
-          this.valueName = node[this.props.label];
-          this.resultValue = node;
+          selectTreeRef.value.blur();
+          valueName.value = node[props.props.label];
+          resultValue.value = node;
         }
-        this.$emit('getValue', this.resultValue);
+        emit('getValue', resultValue.value);
       }
-    },
-    // 从输入框中直接删除某个值时
-    changeValue(val) {
-      if (this.multiple) {
+    
+}
+
+function changeValue(val) {
+
+      if (props.multiple) {
         // 多选（同时删掉传给父组件中多余的值，再传给父组件）
-        this.resultValue.map((item, index) => {
+        resultValue.value.map((item, index) => {
           let i = val.indexOf(item.name)
           if (i == -1) {
-            this.resultValue.splice(index, 1)
+            resultValue.value.splice(index, 1)
           }
         })
-        this.$emit('getValue', this.resultValue);
+        emit('getValue', resultValue.value);
       } else {
         // 单选
-        this.$emit('getValue', val);
+        emit('getValue', val);
       }
-    },
-    // 清除选中
-    clearHandle() {
-      this.valueName = this.multiple ? [] : ''
-      this.resultValue = []
-      this.clearSelected()
-      this.$emit('getValue', this.resultValue)
-    },
-    // 清空选中样式
-    clearSelected() {
+    
+}
+
+function clearHandle() {
+
+      valueName.value = props.multiple ? [] : ''
+      resultValue.value = []
+      clearSelected()
+      emit('getValue', resultValue.value)
+    
+}
+
+function clearSelected() {
+
       let allNode = document.querySelectorAll('#tree-option .el-tree-node')
       allNode.forEach((element) => element.classList.remove('is-current'))
-    }
-  }
+    
 }
 </script>
 <style scoped>

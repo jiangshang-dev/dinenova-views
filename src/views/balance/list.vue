@@ -103,77 +103,63 @@
   </div>
 </template>
 
-<script>
-import { getBalanceList } from "@/api/balance";
-export default {
-  name: "BalanceList",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        mobile: '',
-        userId: '',
-        userNo: '',
-        orderSn: '',
-        status: ''
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getBalanceList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.catchTypeList = response.data.catchTypeList
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    }
-  }
-};
+<script setup>
+import { ref, reactive } from 'vue'
+import { parseTime } from '@/utils/fuint'
+import { getBalanceList } from '@/api/balance'
+
+defineOptions({ name: 'BalanceList' })
+
+const loading = ref(true)
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  mobile: '',
+  userId: '',
+  userNo: '',
+  orderSn: '',
+  status: ''
+})
+const queryForm = ref(null)
+const tables = ref(null)
+
+function getList() {
+  loading.value = true
+  getBalanceList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+getList()
 </script>
 

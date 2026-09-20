@@ -161,7 +161,7 @@
      <!--结算对话框 end-->
 
      <!--扫码付款对话框 start-->
-     <scanPayCodeDialog ref="scanPayCodeDialog" :show-dialog="openScanPayCodeDialog" :memberInfo="memberInfo" :orderId="orderId" :payType="payType" :payAmount="payAmount" @closeDialog="closeDialog" @showPayResult="showPayResult" />
+     <scanPayCodeDialog ref="scanPayCodeDialogRef" :show-dialog="openScanPayCodeDialog" :memberInfo="memberInfo" :orderId="orderId" :payType="payType" :payAmount="payAmount" @closeDialog="closeDialog" @showPayResult="showPayResult" />
      <!--扫码付款对话框 end-->
 
      <!--支付结果对话框 start-->
@@ -182,8 +182,19 @@
    </div>
 </template>
 
-<script>
-import { init, getGoodsInfo, searchGoods, getCartList, saveCart, removeFromCart, submitSettlement, getOrderList, doPay, getMemberInfoById } from "@/api/cashier";
+<script setup>
+import {
+  init as initCashierApi,
+  getGoodsInfo,
+  searchGoods,
+  getCartList as fetchCartList,
+  saveCart,
+  removeFromCart as removeFromCartApi,
+  submitSettlement as submitSettlementApi,
+  getOrderList as fetchOrderList,
+  doPay,
+  getMemberInfoById
+} from "@/api/cashier";
 import { getOrderInfo } from "@/api/order";
 import { getUserId, setUserId, removeUserId } from '@/utils/auth';
 import switchMemberDialog from "./components/switchMemberDialog";
@@ -198,21 +209,19 @@ import orderPrintDialog from "./components/orderPrintDialog";
 import hangUpDialog from "./components/hangUpDialog";
 import Screenfull from '@/components/Screenfull';
 import noGoodsCashier from "./components/noGoodsCashier";
-export default {
-  name: "Cashier",
-  components: {
-    switchMemberDialog,
-    settlementDialog,
-    scanPayCodeDialog,
-    payResultDialog,
-    orderPrintDialog,
-    hangUpDialog,
-    Screenfull,
-    noGoodsCashier
-  },
-  data() {
-    return {
-      // 右侧tab
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'Cashier' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+const scanPayCodeDialogRef = ref(null)
+const state = reactive({
+// 右侧tab
       activeTab: 'cart',
       // 导航tab
       navTab: '0',
@@ -281,88 +290,36 @@ export default {
       couponList: [],
       // 挂单序号
       hangNo: '',
-      isSearch: true
-    };
-  },
-  mounted() {
-    const app = this;
-    // 监听扫码枪按键
-    let code = '';
-    let lastTime, nextTime; // 上次时间、最新时间
-    let lastCode, nextCode; // 上次按键、最新按键
-    document.onkeypress = (e) => {
-      // 获取按键
-      if (window.event) { // IE
-          nextCode = e.keyCode;
-      } else if (e.which) { // Netscape/Firefox/Opera
-          nextCode = e.which;
-      }
-      // 如果触发了回车事件(扫码结束时间)
-      if (nextCode === 13) {
-          if (code.length < 3) {
-              return;
-          }
-          if (app.openScanPayCodeDialog == true) {
-              app.$refs.scanPayCodeDialog.submit(code);
-              return false;
-          }
-          if (app.openSwitchMemberDialog == true) {
-              return false;
-          }
-          if (app.openSettlementDialog == true) {
-              app.$alert("请点击确定收款！");
-              return false;
-          }
-          app.addToCart(code);
-          code = '';
-          lastCode = '';
-          lastTime = '';
-          return true;
-      }
-      nextTime = new Date().getTime(); // 记录最新时间
-      if (!lastTime && !lastCode) { // 如果上次时间和上次按键为空
-          code += e.key; // 执行叠加操作
-      }
-      // 如果有上次时间及上次按键
-      if (lastCode && lastTime && nextTime - lastTime > 30) {
-          code = e.key;
-      } else if (lastCode && lastTime) {
-          code += e.key;
-      }
-      lastCode = nextCode;
-      lastTime = nextTime;
-    }
-  },
-  created() {
-    // 隐藏各路菜单
-    this.$store.state.app.sidebar.hide = true
-    this.initCashier();
-    this.getCartList();
-  },
-  methods: {
-    // 初始化数据
-    initCashier() {
-      const app = this;
+      isSearch: true,
+      loading: false
+})
+const { activeTab, navTab, isClose, openGoodsDialog, openSwitchMemberDialog, openSettlementDialog, openScanPayCodeDialog, openPayResultDialog, openOrderPrintDialog, openHangUpDialog, openNoGoodsCashierDialog, searchForm, payResult, goodsForm, menuList, activeMenu, tabList, memberInfo, accountInfo, storeInfo, goodsInfo, goodsSpecIds, goodsNum, cateId, imagePath, cateList, goodsList, activeGoodsList, cartList, orderList, cartTotalPrice, cartRemark, cartTotalNum, payAmount, orderId, payType, orderInfo, couponList, hangNo, isSearch, loading } = toRefs(state)
+
+function initCashier() {
+
+      ;
       const userId = getUserId() > 0 ? getUserId() : 0;
-      init(userId).then( response => {
-          app.cateList = response.data.cateList;
-          app.tabList = response.data.cateList;
-          app.goodsList = response.data.goodsList;
-          app.activeGoodsList = this.goodsList;
-          app.imagePath = response.data.imagePath;
-          app.storeInfo = response.data.storeInfo;
-          app.accountInfo = response.data.accountInfo;
-          app.memberInfo = response.data.memberInfo;
-          app.loading = false;
-          app.hangNo = '';
+      initCashierApi(userId).then( response => {
+          cateList.value = response.data.cateList;
+          tabList.value = response.data.cateList;
+          goodsList.value = response.data.goodsList;
+          activeGoodsList.value = goodsList.value;
+          imagePath.value = response.data.imagePath;
+          storeInfo.value = response.data.storeInfo;
+          accountInfo.value = response.data.accountInfo;
+          memberInfo.value = response.data.memberInfo;
+          loading.value = false;
+          hangNo.value = '';
         }
       ).catch(() => {
         // empty
       });
-    },
-    // 菜单切换
-    switchMenu(menuKey) {
-      this.activeMenu = menuKey;
+    
+}
+
+function switchMenu(menuKey) {
+
+      activeMenu.value = menuKey;
       let url = '';
       if (menuKey == 'coupon') {
           url = '/coupon/confirm/index';
@@ -374,37 +331,43 @@ export default {
           url = '/member/index';
       }
       if (url) {
-          const routeLink = this.$router.resolve({ path: url });
+          const routeLink = router.resolve({ path: url });
           window.open(routeLink.href, '_blank');
       }
-    },
-    // tab切换
-    switchTab(el) {
-      this.navTab = el.name;
-      this.filterCate(this.navTab);
-    },
-    // 过滤分类商品
-    filterCate(cateId) {
-       this.cateId = cateId;
+    
+}
+
+function switchTab(el) {
+
+      navTab.value = el.name;
+      filterCate(navTab.value);
+    
+}
+
+function filterCate(cateId) {
+
+       cateId.value = cateId;
        const dataList = [];
-       this.goodsList.forEach(function(goods) {
+       goodsList.value.forEach(function(goods) {
           if (cateId == goods.cateId && cateId > 0) {
               dataList.push(goods);
           } else if (cateId == 0) {
               dataList.push(goods);
           }
        })
-       this.activeGoodsList = dataList;
-    },
-    // 购物车列表
-    getCartList() {
-      const app = this;
-      if (app.loading) {
+       activeGoodsList.value = dataList;
+    
+}
+
+function getCartList() {
+
+      ;
+      if (loading.value) {
           return false;
       }
-      app.loading = true;
-      app.cartList = [];
-      getCartList({ userId: getUserId(), hangNo: app.hangNo }).then( response => {
+      loading.value = true;
+      cartList.value = [];
+      fetchCartList({ userId: getUserId(), hangNo: hangNo.value }).then( response => {
            const cartList = response.data.list;
            if (cartList && cartList.length > 0) {
                cartList.forEach(function(item) {
@@ -415,71 +378,79 @@ export default {
                       })
                   }
                   const cartInfo = { cartId: item.id, skuId: item.skuId, goodsId: item.goodsInfo.id, name: item.goodsInfo.name, logo: item.goodsInfo.logo, price: item.goodsInfo.price, buyNum: item.num, specList: specList };
-                  app.cartList.push(cartInfo);
+                  cartList.value.push(cartInfo);
                })
            }
-           app.cartTotalPrice = response.data.totalPrice;
-           app.cartTotalNum = response.data.totalNum;
-           app.couponList = response.data.couponList;
-           app.loading = false;
+           cartTotalPrice.value = response.data.totalPrice;
+           cartTotalNum.value = response.data.totalNum;
+           couponList.value = response.data.couponList;
+           loading.value = false;
       }).catch(() => {
           // empty
       });
-    },
-    // 查询商品
-    doQueryGoods() {
-      const app = this;
-      if (!app.searchForm.keyword) {
-          app.activeGoodsList = app.goodsList;
+    
+}
+
+function doQueryGoods() {
+
+      ;
+      if (!searchForm.value.keyword) {
+          activeGoodsList.value = goodsList.value;
           return false;
       }
-      app.loading = true;
-      searchGoods({ keyword: app.searchForm.keyword }).then( response => {
-         app.loading = false;
+      loading.value = true;
+      searchGoods({ keyword: searchForm.value.keyword }).then( response => {
+         loading.value = false;
          if (response.data && response.data.length > 0) {
-             app.activeGoodsList = response.data;
+             activeGoodsList.value = response.data;
          } else {
-             app.$modal.alert("抱歉，未查询到商品信息！");
+             modal.alert("抱歉，未查询到商品信息！");
              return false;
          }
       }).catch(() => {
          // empty
       });
-    },
-    // 点击商品规格弹框
-    clickGoods(goodsInfo) {
-      const app = this;
-      if (app.loading) {
+    
+}
+
+function clickGoods(goodsItem) {
+
+      ;
+      if (loading.value) {
           return false;
       }
-      app.loading = true;
-      getGoodsInfo(goodsInfo.id).then( response => {
-          app.goodsInfo = response.data.goodsInfo;
-          app.goodsInfo.specList = response.data.specList;
-          app.goodsInfo.skuList = response.data.skuList;
-          app.goodsNum = 1;
-          app.loading = false;
-          if (app.goodsInfo.isSingleSpec == 'N') {
-              app.openGoodsDialog = true;
+      loading.value = true;
+      getGoodsInfo(goodsItem.id).then( response => {
+          goodsInfo.value = response.data.goodsInfo;
+          goodsInfo.value.specList = response.data.specList;
+          goodsInfo.value.skuList = response.data.skuList;
+          goodsNum.value = 1;
+          loading.value = false;
+          if (goodsInfo.value.isSingleSpec == 'N') {
+              openGoodsDialog.value = true;
           } else {
-              app.addToCart(false);
+              addToCart(false);
           }
       }).catch(() => {
           // empty
       });
-    },
-    // 关闭规格弹框
-    closeGoodsDialog() {
-       this.openGoodsDialog = false;
-    },
-    // 选择商品属性
-    selectGoodsSpec(specId) {
-       const app = this;
+    
+}
+
+function closeGoodsDialog() {
+
+       openGoodsDialog.value = false;
+    
+}
+
+function selectGoodsSpec(specId) {
+
+       ;
        let specIds = [];
-       app.goodsInfo.specList.forEach(function() {
+       goodsInfo.value.specList.forEach(function() {
           specIds.push(0);
        })
-       app.goodsInfo.specList.forEach(function(specItem, index) {
+       goodsInfo.value.specList.forEach(function(specItem, index) {
           const children = [];
           specItem.child.forEach(function(child) {
               children.push(child.id)
@@ -487,158 +458,177 @@ export default {
           if (children.includes(specId)) {
               specIds[index] = specId
           } else {
-              specIds[index] = app.goodsSpecIds[index] == undefined ? 0 : app.goodsSpecIds[index];
+              specIds[index] = goodsSpecIds.value[index] == undefined ? 0 : goodsSpecIds.value[index];
           }
        })
-       app.goodsSpecIds = specIds;
-    },
-    // 加入购物车
-    addToCart(skuNo) {
-      const app = this;
-      app.isSearch = false;
+       goodsSpecIds.value = specIds;
+    
+}
+
+function addToCart(skuNo) {
+
+      ;
+      isSearch.value = false;
       // 扫码枪扫描商品条码，直接加入购物车
       if (skuNo) {
           searchGoods({ keyword: skuNo }).then( response => {
-            app.loading = false;
+            loading.value = false;
             if (response.data && response.data.length == 1) {
-                app.clickGoods(response.data[0]);
-                app.isSearch = true;
+                clickGoods(response.data[0]);
+                isSearch.value = true;
             } else {
-                app.$modal.alert("抱歉，未查询到商品信息！");
+                modal.alert("抱歉，未查询到商品信息！");
                 return false;
             }
           }).catch(() => {
              //empty
           });
       }
-      if (app.loading || app.isSearch || !app.goodsInfo.id || app.goodsNum <= 0) {
+      if (loading.value || isSearch.value || !goodsInfo.value.id || goodsNum.value <= 0) {
           return false;
       }
-      const specIds = app.goodsSpecIds.join('-');
+      const specIds = goodsSpecIds.value.join('-');
       let skuId = 0;
-      app.goodsInfo.skuList.forEach(function(skuInfo) {
+      goodsInfo.value.skuList.forEach(function(skuInfo) {
          if (skuInfo.specIds == specIds) {
              skuId = skuInfo.id;
          }
       })
-      if (app.goodsInfo.isSingleSpec == 'N' && skuId <= 0) {
-          app.$modal.alert("请先确认商品规格！");
+      if (goodsInfo.value.isSingleSpec == 'N' && skuId <= 0) {
+          modal.alert("请先确认商品规格！");
           return false;
       }
       // 添加到购物车
-      const cartInfo = { goodsId: app.goodsInfo.id,
-                         name: app.goodsInfo.name,
-                         logo: app.goodsInfo.logo,
-                         price: app.goodsInfo.price,
+      const cartInfo = { goodsId: goodsInfo.value.id,
+                         name: goodsInfo.value.name,
+                         logo: goodsInfo.value.logo,
+                         price: goodsInfo.value.price,
                          skuId: skuId,
                          userId: getUserId(),
-                         hangNo: app.hangNo,
-                         buyNum: app.goodsNum };
-      app.loading = true;
+                         hangNo: hangNo.value,
+                         buyNum: goodsNum.value };
+      loading.value = true;
       saveCart(cartInfo).then(response => {
           if (response.data.cartId) {
-              app.loading = false;
-              app.activeTab = 'cart';
-              app.getCartList();
-              app.openGoodsDialog = false;
-              app.goodsSpecIds = [];
-              app.goodsNum = 0;
+              loading.value = false;
+              activeTab.value = 'cart';
+              getCartList();
+              openGoodsDialog.value = false;
+              goodsSpecIds.value = [];
+              goodsNum.value = 0;
           }
       }).catch(() => {
          // empty
       });
-    },
-    // 删除购物车
-    removeFromCart(cartId) {
-      const app = this;
-      removeFromCart({ cartId: [cartId], userId: getUserId() }).then(response => {
+    
+}
+
+function removeFromCart(cartId) {
+
+      ;
+      removeFromCartApi({ cartId: [cartId], userId: getUserId() }).then(response => {
         if (response.data) {
-            app.getCartList();
+            getCartList();
         }
       }).catch(() => {
          // empty
       });
-    },
-    // 购物车数量变化
-    changeBuyNum(cartInfo) {
-      const app = this;
+    
+}
+
+function changeBuyNum(cartInfo) {
+
+      ;
       const param = { goodsId: cartInfo.goodsId,
                       skuId: cartInfo.skuId,
                       cartId: cartInfo.cartId,
                       action: '=',
-                      userId: app.memberInfo ? app.memberInfo.id : null,
-                      hangNo: app.hangNo,
+                      userId: memberInfo.value ? memberInfo.value.id : null,
+                      hangNo: hangNo.value,
                       buyNum: cartInfo.buyNum };
       saveCart(param).then(response => {
         if (response.data.cartId) {
-            app.getCartList();
-            app.openGoodsDialog = false;
-            app.goodsSpecIds = [];
+            getCartList();
+            openGoodsDialog.value = false;
+            goodsSpecIds.value = [];
         }
       }).catch(() => {
          // empty
       });
-    },
-    // 弹出关联会员
-    switchMember() {
-       this.openSwitchMemberDialog = true;
-    },
-    // 确认关联会员
-    doSwitchMember(memberInfo) {
-       this.openSwitchMemberDialog = false;
+    
+}
+
+function switchMember() {
+
+       openSwitchMemberDialog.value = true;
+    
+}
+
+function doSwitchMember(memberInfo) {
+
+       openSwitchMemberDialog.value = false;
        if (memberInfo != 0) {
-           this.memberInfo = memberInfo;
+           memberInfo.value = memberInfo;
            if (memberInfo) {
                setUserId(memberInfo.id);
            } else {
                removeUserId();
            }
-           this.getCartList();
+           getCartList();
        }
-    },
-    // 无商品结算
-    doCashier() {
-      this.orderInfo = {};
-      this.openNoGoodsCashierDialog = true;
-    },
-    submitCashier(param) {
-      this.orderInfo = {};
-      this.openSettlementDialog = true;
-      this.cartTotalPrice = parseFloat(param.amount);
-      this.cartRemark = param.remark;
-      this.openNoGoodsCashierDialog = false;
-    },
-    // 发起结算
-    doSettlement() {
-       if (this.cartList.length < 1) {
-           this.$modal.alert("请先添加结算商品！");
+    
+}
+
+function doCashier() {
+
+      orderInfo.value = {};
+      openNoGoodsCashierDialog.value = true;
+    
+}
+
+function submitCashier(param) {
+
+      orderInfo.value = {};
+      openSettlementDialog.value = true;
+      cartTotalPrice.value = parseFloat(param.amount);
+      cartRemark.value = param.remark;
+      openNoGoodsCashierDialog.value = false;
+    
+}
+
+function doSettlement() {
+
+       if (cartList.value.length < 1) {
+           modal.alert("请先添加结算商品！");
            return false;
        }
-       this.getCartList();
-       this.orderInfo = {};
-       this.openSettlementDialog = true;
-    },
-    // 确认结算
-    submitSettlement(param) {
-      const app = this;
+       getCartList();
+       orderInfo.value = {};
+       openSettlementDialog.value = true;
+    
+}
+
+function submitSettlement(param) {
+
+      ;
       // 已生成的订单支付
-      if (app.orderInfo.id) {
+      if (orderInfo.value.id) {
           // 微信、支付宝支付
           if (param.payType == 'MICROPAY' || param.payType == 'ALISCAN') {
-              app.payAmount = app.orderInfo.payAmount;
-              app.orderId = app.orderInfo.id;
-              app.openScanPayCodeDialog = true;
-              app.openSettlementDialog = false;
-              app.payType = param.payType;
+              payAmount.value = orderInfo.value.payAmount;
+              orderId.value = orderInfo.value.id;
+              openScanPayCodeDialog.value = true;
+              openSettlementDialog.value = false;
+              payType.value = param.payType;
           }
           // 现金、余额支付
           if (param.payType == 'CASH' || param.payType == 'BALANCE') {
-              doPay({ orderId: app.orderId, payType: param.payType, cashierPayAmount: param.totalPrice, cashierDiscountAmount: param.discountPrice, userId: getUserId() }).then( response => {
-                  app.openSettlementDialog = false;
+              doPay({ orderId: orderId.value, payType: param.payType, cashierPayAmount: param.totalPrice, cashierDiscountAmount: param.discountPrice, userId: getUserId() }).then( response => {
+                  openSettlementDialog.value = false;
                   if (response.data.orderInfo.payStatus == 'B') {
-                      app.showPayResult({ isSuccess: true, payAmount: response.data.orderInfo.payAmount, orderId: response.data.orderInfo.id });
+                      showPayResult({ isSuccess: true, payAmount: response.data.orderInfo.payAmount, orderId: response.data.orderInfo.id });
                   } else {
-                      app.$modal.alert(response.data.message ? response.data.message : "抱歉，订单操作异常！");
+                      modal.alert(response.data.message ? response.data.message : "抱歉，订单操作异常！");
                   }
               }).catch(() => {
                 // empty
@@ -648,7 +638,7 @@ export default {
       }
       // 购物车提交结算
       let cartIds = [];
-      app.cartList.forEach(function(cart){
+      cartList.value.forEach(function(cart){
           cartIds.push(cart.cartId);
       })
       const data = { cashierPayAmount: param.totalPrice,
@@ -657,130 +647,198 @@ export default {
                      orderMode: 'oneself',
                      payType: param.payType,
                      remark: param.remark,
-                     type: app.cartList.length > 0 ? 'goods' : 'payment',
+                     type: cartList.value.length > 0 ? 'goods' : 'payment',
                      couponId: param.userCouponId ? param.userCouponId : 0,
                      userId: getUserId() };
-      submitSettlement(data).then( response => {
-          app.initCashier();
-          app.getCartList();
+      submitSettlementApi(data).then( response => {
+          initCashier();
+          getCartList();
           // 微信支付，弹出扫码框
           if (response.data.orderInfo.payType == 'MICROPAY' || param.payType == 'ALISCAN') {
-             app.payAmount = response.data.orderInfo.payAmount;
-             app.orderId = response.data.orderInfo.id;
-             app.openScanPayCodeDialog = true;
-             app.openSettlementDialog = false;
-             app.payType = param.payType;
+             payAmount.value = response.data.orderInfo.payAmount;
+             orderId.value = response.data.orderInfo.id;
+             openScanPayCodeDialog.value = true;
+             openSettlementDialog.value = false;
+             payType.value = param.payType;
              return false;
           }
           // 现金、余额支付
           if (response.data.orderInfo.payType == 'CASH' || response.data.orderInfo.payType == 'BALANCE') {
-              app.openSettlementDialog = false;
+              openSettlementDialog.value = false;
               if (response.data.orderInfo.payStatus == 'B') {
-                  app.showPayResult({ isSuccess: true, payAmount: response.data.orderInfo.payAmount, orderId: response.data.orderInfo.id });
+                  showPayResult({ isSuccess: true, payAmount: response.data.orderInfo.payAmount, orderId: response.data.orderInfo.id });
               } else {
-                  app.$modal.alert(response.data.message);
+                  modal.alert(response.data.message);
               }
               return false;
           }
       }).catch(() => {
          // empty
       });
-    },
-    // 点击挂单/取单
-    hangUp() {
-       this.openHangUpDialog = true;
-    },
-    // 取单
-    getHangNo(data) {
-       this.openHangUpDialog = false;
-       this.hangNo = data.hangNo;
-       this.getCartList();
+    
+}
+
+function hangUp() {
+
+       openHangUpDialog.value = true;
+    
+}
+
+function getHangNo(data) {
+
+       openHangUpDialog.value = false;
+       hangNo.value = data.hangNo;
+       getCartList();
        // 关联会员信息
        if (data.hangNo && data.hangNo.length > 0 ) {
-           this.doSwitchMember(data.memberInfo);
+           doSwitchMember(data.memberInfo);
        }
-    },
-    // 执行挂单
-    doHangUp() {
-      this.hangNo = '';
-      this.getCartList();
+    
+}
+
+function doHangUp() {
+
+      hangNo.value = '';
+      getCartList();
       removeUserId();
-      this.memberInfo = null;
-    },
-    // 关闭对话框
-    closeDialog(dialog) {
+      memberInfo.value = null;
+    
+}
+
+function closeDialog(dialog) {
+
        if (dialog == 'settlementDialog') {
-           this.openSettlementDialog = false;
+           openSettlementDialog.value = false;
        } else if (dialog == 'switchMemberDialog') {
-           this.openSwitchMemberDialog = false;
+           openSwitchMemberDialog.value = false;
        } else if (dialog == 'scanPayCodeDialog') {
-           this.openScanPayCodeDialog = false;
+           openScanPayCodeDialog.value = false;
        } else if (dialog == 'payResultDialog') {
-           this.openPayResultDialog = false;
-           this.getOrderList();
+           openPayResultDialog.value = false;
+           getOrderList();
        } else if (dialog == 'printOrder') {
-           this.openOrderPrintDialog = false;
-           this.getOrderList();
+           openOrderPrintDialog.value = false;
+           getOrderList();
        } else if (dialog == 'hangUpDialog') {
-           this.openHangUpDialog = false;
+           openHangUpDialog.value = false;
        } else if (dialog == 'openNoGoodsCashierDialog') {
-           this.openNoGoodsCashierDialog = false;
+           openNoGoodsCashierDialog.value = false;
        }
-    },
-    // 展示支付结果
-    showPayResult(payResult) {
-       this.payResult = payResult;
-       this.openPayResultDialog = true;
-    },
-    // 订单列表
-    getOrderList() {
-      const app = this;
-      if (app.loading) {
+    
+}
+
+function showPayResult(payResult) {
+
+       payResult.value = payResult;
+       openPayResultDialog.value = true;
+    
+}
+
+function getOrderList() {
+
+      ;
+      if (loading.value) {
           return false;
       }
-      app.loading = true;
-      getOrderList({ page: 1, pageSize: 20 }).then(response => {
-          app.loading = false;
+      loading.value = true;
+      fetchOrderList({ page: 1, pageSize: 20 }).then(response => {
+          loading.value = false;
           if (response.data) {
-              app.orderList = response.data.content;
+              orderList.value = response.data.content;
           }
       })
-    },
-    // 订单支付
-    doPayOrder(orderInfo) {
-       const app = this;
-       app.payAmount = orderInfo.amount;
-       app.orderId = orderInfo.id;
-       app.orderInfo = orderInfo;
+    
+}
+
+function doPayOrder(orderInfo) {
+
+       ;
+       payAmount.value = orderInfo.amount;
+       orderId.value = orderInfo.id;
+       orderInfo.value = orderInfo;
        let userId = 0
        if (orderInfo.isVisitor !== "Y") {
-           userId = app.orderInfo.userInfo.id;
+           userId = orderInfo.value.userInfo.id;
        }
        getMemberInfoById(userId).then(response => {
           if (response.data.memberInfo) {
-              app.memberInfo = response.data.memberInfo;
+              memberInfo.value = response.data.memberInfo;
           } else {
-              app.memberInfo = null;
+              memberInfo.value = null;
           }
        }).catch(() => {
           // empty
        });
-       app.openSettlementDialog = true;
-    },
-    // 打印小票
-    showOrderPrint(orderId) {
-      const app = this;
+       openSettlementDialog.value = true;
+    
+}
+
+function showOrderPrint(orderId) {
+
+      ;
       getOrderInfo(orderId).then(response => {
         if (response.data.orderInfo) {
-            app.orderInfo = response.data.orderInfo;
-            app.openOrderPrintDialog = true;
+            orderInfo.value = response.data.orderInfo;
+            openOrderPrintDialog.value = true;
         }
       }).catch(() => {
          // empty
       });
+    
+}
+
+store.state.app.sidebar.hide = true
+initCashier()
+getCartList()
+
+onBeforeUnmount(() => {
+  store.dispatch('app/toggleSideBarHide', false)
+})
+
+onMounted(() => {
+  let code = ''
+  let lastTime, nextTime
+  let lastCode, nextCode
+  document.onkeypress = (e) => {
+    if (window.event) {
+      nextCode = e.keyCode
+    } else if (e.which) {
+      nextCode = e.which
     }
+    if (nextCode === 13) {
+      if (code.length < 3) {
+        return
+      }
+      if (openScanPayCodeDialog.value === true) {
+        scanPayCodeDialogRef.value?.submit(code)
+        return false
+      }
+      if (openSwitchMemberDialog.value === true) {
+        return false
+      }
+      if (openSettlementDialog.value === true) {
+        modal.alert('请点击确定收款！')
+        return false
+      }
+      addToCart(code)
+      code = ''
+      lastCode = ''
+      lastTime = ''
+      return true
+    }
+    nextTime = new Date().getTime()
+    if (!lastTime && !lastCode) {
+      code += e.key
+    }
+    if (lastCode && lastTime && nextTime - lastTime > 30) {
+      code = e.key
+    } else if (lastCode && lastTime) {
+      code += e.key
+    }
+    lastCode = nextCode
+    lastTime = nextTime
   }
-};
+})
 </script>
 
 <style lang="scss" scoped>

@@ -74,7 +74,7 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { deepClone } from "@/utils/base.js";
 import UserInfo from "./params/UserInfo.vue";
 import Banner from "./params/Banner.vue";
@@ -83,80 +83,46 @@ import NavBar from "./params/NavBar.vue";
 import Blank from "./params/Blank.vue";
 import Guide from "./params/Guide.vue";
 import adNav from "./params/adNav.vue";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  components: {
-    /*用户信息组件*/
-    UserInfo,
-    /*广告导航*/
-    adNav,
-    /*图片轮播组件*/
-    Banner,
-    /*图片橱窗*/
-    Window,
-    /*导航组*/
-    NavBar,
-    /*辅助空白*/
-    Blank,
-    /*辅助线*/
-    Guide,
-  },
-  data() {
-    return {
-      /*图片当前对象*/
+defineOptions({ name: 'Params' })
+
+const props = defineProps(['form', 'defaultData', 'diyData'])
+
+const state = reactive({
+/*图片当前对象*/
       imgModel: null,
-    };
-  },
-  props: ["form", "defaultData", "diyData"],
-  created() {},
-  methods: {
-    /**
-     * 编辑器：添加data元素
-     */
-    onEditorAddData: function () {
-      let self = this;
-      // 新增data数据
-      var newDataItem = deepClone(
-        self.defaultData[self.form.curItem.type].data[0]
-      );
-      self.form.curItem.data.push(newDataItem);
-    },
-    /**
-     * 编辑器：重置颜色
-     * @param holder
-     * @param attribute
-     * @param color
-     */
-    onEditorResetColor: function (holder, attribute, color) {
-      holder[attribute] = color;
-    },
-    /**
-     * 编辑器：删除data元素
-     * @param index
-     * @param selectedIndex
-     */
-    onEditorDeleleData: function (index, selectedIndex) {
-      let self = this;
-      if (self.diyData.items[selectedIndex].data.length <= 1) {
-        this.$modal.msgWarning("至少保留一个！");
-        return false;
-      }
-      self.diyData.items[selectedIndex].data.splice(index, 1);
-    },
-    /**
-     * 编辑器：选择图片
-     * @param source
-     * @param index
-     */
-    onEditorSelectImage: function (index, imgUrl, filePath) {
-      this.imgModel = {
-        index: index,
-        imgUrl: imgUrl,
-      };
-      this.imgModel.index[this.imgModel.imgUrl] = filePath;
-    },
-  },
-};
+})
+const { imgModel } = toRefs(state)
+
+function onEditorAddData() {
+  // 新增data数据
+  var newDataItem = deepClone(
+    props.defaultData[props.form.curItem.type].data[0]
+  );
+  props.form.curItem.data.push(newDataItem);
+}
+
+function onEditorResetColor(holder, attribute, color) {
+  holder[attribute] = color;
+}
+
+function onEditorDeleleData(index, selectedIndex) {
+  if (props.diyData.items[selectedIndex].data.length <= 1) {
+    modal.msgWarning("至少保留一个！");
+    return false;
+  }
+  props.diyData.items[selectedIndex].data.splice(index, 1);
+}
+
+function onEditorSelectImage(index, imgUrl, filePath) {
+  imgModel.value = {
+    index: index,
+    imgUrl: imgUrl,
+  };
+  imgModel.value.index[imgModel.value.imgUrl] = filePath;
+}
 </script>
 
 <style>

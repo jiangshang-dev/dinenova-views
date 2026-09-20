@@ -22,26 +22,25 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: "DictTag",
-  props: {
-    options: {
-      type: Array,
-      default: null,
-    },
-    value: [Number, String, Array],
+<script setup>
+import { computed } from 'vue'
+
+defineOptions({ name: 'DictTag' })
+
+const props = defineProps({
+  options: {
+    type: Array,
+    default: null,
   },
-  computed: {
-    values() {
-      if (this.value !== null && typeof this.value !== 'undefined') {
-        return Array.isArray(this.value) ? this.value : [String(this.value)];
-      } else {
-        return [];
-      }
-    },
-  },
-};
+  value: [Number, String, Array],
+})
+
+const values = computed(() => {
+  if (props.value !== null && typeof props.value !== 'undefined') {
+    return Array.isArray(props.value) ? props.value : [String(props.value)]
+  }
+  return []
+})
 </script>
 <style scoped>
 .el-tag + .el-tag {

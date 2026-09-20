@@ -1,5 +1,5 @@
 <template>
-  <el-dialog class="common-dialog" title="选择商品" :visible="showDialog" @close="close" width="70%" destroy-on-close>
+  <el-dialog class="common-dialog" title="选择商品" :model-value="showDialog" @close="close" width="70%" destroy-on-close>
     <el-form :model="params" ref="queryForm" class="main-search" size="small" :inline="true" label-width="100px">
       <el-form-item label="商品关键字" prop="keyword">
         <el-input
@@ -60,107 +60,92 @@
     </div></template>
   </el-dialog>
 </template>
-<script>
-import { selectGoodsList } from "@/api/goods";
-export default {
-  props: {
-    showDialog: {
-      type:[Boolean],
-      default:()=>false
-    },
-    storeId: {
-      type:[Number],
-      default:()=>"0"
-    },
-    dataList: {
-      type:[Array],
-      default:()=> []
-    }
-  },
-  watch: {
-    showDialog(value) {
-      if (value) {
-          this.getGoodsList();
-      }
-    }
-  },
-  data(){
-    return {
-      params:  {
-        page: 1,
-        pageSize: 10,
-        keyword: ''
-      },
-      selectData: [],
-      loading: false,
-      goodsList: [],
-      // 图片根目录
-      imagePath: "",
-      // 总条数
-      total: 0
-    }
-  },
-  methods: {
-    // 获取商品列表
-    getGoodsList() {
-      const app = this;
-      app.params.storeId = app.storeId;
-      selectGoodsList(this.params).then( response => {
-        if (response.data) {
-            app.goodsList = response.data.paginationResponse.content;
-            app.goodsList.forEach(function(goods) {
-                app.$set(goods, 'checked', false);
-            })
-            // 回显
-            app.goodsList.forEach(function(item, key) {
-                app.dataList.forEach(function(row) {
-                    if (item.id == row.id && item.skuId == row.skuId) {
-                        app.$set(app.goodsList[key], 'checked', true);
-                    }
-                })
-            })
-            app.total = response.data.paginationResponse.totalElements;
-            app.imagePath = response.data.imagePath;
-        }
+<script setup>
+import { ref, reactive, watch } from 'vue'
+import { selectGoodsList } from '@/api/goods'
+
+defineOptions({ name: 'SelectGoodsDialog' })
+
+const props = defineProps({
+  showDialog: { type: Boolean, default: false },
+  storeId: { type: Number, default: 0 },
+  dataList: { type: Array, default: () => [] }
+})
+
+const emit = defineEmits(['closeDialog', 'submit'])
+
+const params = reactive({
+  page: 1,
+  pageSize: 10,
+  keyword: ''
+})
+const selectData = ref([])
+const loading = ref(false)
+const goodsList = ref([])
+const imagePath = ref('')
+const total = ref(0)
+
+function getGoodsList() {
+  params.storeId = props.storeId
+  selectGoodsList(params).then(response => {
+    if (response.data) {
+      goodsList.value = response.data.paginationResponse.content
+      goodsList.value.forEach(function (goods) {
+        goods.checked = false
       })
-    },
-    // 选择一行
-    checkRow(checked, index, row) {
-       const app = this;
-       if (checked) {
-           let isExist  = false;
-           app.selectData.forEach(function(item) {
-              if (item.id == row.id && item.skuId == row.skuId) {
-                  isExist = true;
-              }
-           })
-           if (!isExist) {
-               app.selectData.push(row);
-           }
-       } else {
-           // 删除
-           const dataList = [];
-           app.$set(app.goodsList[index], 'checked', false);
-           app.goodsList.forEach(function(item) {
-              if (item.checked) {
-                  dataList.push(item);
-              }
-           })
-           app.selectData = dataList;
-       }
-    },
-    // 查询商品
-    handleQuery() {
-      this.getGoodsList();
-    },
-    close() {
-      this.$emit('closeDialog');
-    },
-    doSave() {
-      this.$emit('submit', this.selectData);
+      goodsList.value.forEach(function (item, key) {
+        props.dataList.forEach(function (row) {
+          if (item.id == row.id && item.skuId == row.skuId) {
+            goodsList.value[key].checked = true
+          }
+        })
+      })
+      total.value = response.data.paginationResponse.totalElements
+      imagePath.value = response.data.imagePath
     }
+  })
+}
+
+function checkRow(checked, index, row) {
+  if (checked) {
+    let isExist = false
+    selectData.value.forEach(function (item) {
+      if (item.id == row.id && item.skuId == row.skuId) {
+        isExist = true
+      }
+    })
+    if (!isExist) {
+      selectData.value.push(row)
+    }
+  } else {
+    const dataList = []
+    goodsList.value[index].checked = false
+    goodsList.value.forEach(function (item) {
+      if (item.checked) {
+        dataList.push(item)
+      }
+    })
+    selectData.value = dataList
   }
 }
+
+function handleQuery() {
+  getGoodsList()
+}
+
+function close() {
+  emit('closeDialog')
+}
+
+function doSave() {
+  emit('submit', selectData.value)
+}
+
+watch(() => props.showDialog, value => {
+  if (value) {
+    getGoodsList()
+  }
+})
 </script>
 <style lang="scss" scoped>
 .spec-item {

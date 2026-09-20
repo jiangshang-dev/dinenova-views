@@ -24,36 +24,39 @@
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {
-      /*类别列表*/
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'Type' })
+
+const props = defineProps({
+defaultData: Object,
+})
+
+const state = reactive({
+/*类别列表*/
       typeList: null,
       activeName: 0,
-    };
-  },
-  props: {
-    defaultData: Object,
-  },
-  created() {
-    this.init();
-  },
-  methods: {
-    /*初始化数据*/
-    init() {
+})
+const { typeList, activeName } = toRefs(state)
+
+function init() {
+
       let tempList = {};
-      for (let key in this.defaultData) {
-        let item = this.defaultData[key];
+      for (let key in props.defaultData) {
+        let item = props.defaultData[key];
         if (!tempList.hasOwnProperty(item.group)) {
           tempList[item.group] = {};
           tempList[item.group].children = [];
         }
         tempList[item.group].children.push(item);
       }
-      this.typeList = tempList;
-    },
-    typename(type) {
+      typeList.value = tempList;
+    
+}
+
+function typename(type) {
+
       let name = "";
       if (type == "media") {
         name = "媒体组件";
@@ -65,9 +68,8 @@ export default {
         name = "页面组件";
       }
       return name;
-    },
-  },
-};
+    
+}
 </script>
 
 <style scoped>

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog class="common-dialog" title="订单打印预览" :visible="showDialog" width="380px" @close="cancel" append-to-body destroy-on-close>
+  <el-dialog class="common-dialog" title="订单打印预览" :model-value="showDialog" width="380px" @close="cancel" append-to-body destroy-on-close>
     <div v-if="orderInfo.id" class="print-area" id="printArea">
       <div class="base-info">
         <div class="name" v-if="storeInfo">{{ storeInfo.name }}</div>
@@ -34,10 +34,13 @@
     </div></template>
   </el-dialog>
 </template>
-<script>
-export default {
-  props: {
-    showDialog: {
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'orderPrintDialog' })
+
+const props = defineProps({
+showDialog: {
       type:[Boolean],
       default:()=>false
     },
@@ -49,10 +52,12 @@ export default {
       type:[Object],
       default:()=>{}
     }
-  },
-  data(){
-    return {
-      printObj: {
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+printObj: {
         id: "printArea",
         popTitle: '订单明细',
         extraCss: '',
@@ -62,16 +67,19 @@ export default {
         extraHead: '',
         standard: 'loose'
       }
-    }
-  },
-  methods: {
-    handlePrint() {
-      this.$emit('closeDialog','printOrder');
-    },
-    cancel() {
-      this.$emit('closeDialog','printOrder');
-    }
-  }
+})
+const { printObj } = toRefs(state)
+
+function handlePrint() {
+
+      emit('closeDialog','printOrder');
+    
+}
+
+function cancel() {
+
+      emit('closeDialog','printOrder');
+    
 }
 </script>
 <style scoped lang="scss">

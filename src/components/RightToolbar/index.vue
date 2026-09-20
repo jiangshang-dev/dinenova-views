@@ -20,58 +20,55 @@
     </el-dialog>
   </div>
 </template>
-<script>
-export default {
-  name: "RightToolbar",
-  data() {
-    return {
-      // 显隐数据
-      value: [],
-      // 弹出层标题
-      title: "显示/隐藏",
-      // 是否显示弹出层
-      open: false,
-    };
+<script setup>
+import { ref, onMounted } from 'vue'
+
+defineOptions({ name: 'RightToolbar' })
+
+const props = defineProps({
+  showSearch: {
+    type: Boolean,
+    default: true,
   },
-  props: {
-    showSearch: {
-      type: Boolean,
-      default: true,
-    },
-    columns: {
-      type: Array,
-    },
+  columns: {
+    type: Array,
   },
-  created() {
-    // 显隐列初始默认隐藏列
-    for (let item in this.columns) {
-      if (this.columns[item].visible === false) {
-        this.value.push(parseInt(item));
-      }
+})
+
+const emit = defineEmits(['update:showSearch', 'queryTable'])
+
+const value = ref([])
+const title = ref('显示/隐藏')
+const open = ref(false)
+
+onMounted(() => {
+  if (!props.columns) return
+  for (let item in props.columns) {
+    if (props.columns[item].visible === false) {
+      value.value.push(parseInt(item))
     }
-  },
-  methods: {
-    // 搜索
-    toggleSearch() {
-      this.$emit("update:showSearch", !this.showSearch);
-    },
-    // 刷新
-    refresh() {
-      this.$emit("queryTable");
-    },
-    // 右侧列表元素变化
-    dataChange(data) {
-      for (let item in this.columns) {
-        const key = this.columns[item].key;
-        this.columns[item].visible = !data.includes(key);
-      }
-    },
-    // 打开显隐列dialog
-    showColumn() {
-      this.open = true;
-    },
-  },
-};
+  }
+})
+
+function toggleSearch() {
+  emit('update:showSearch', !props.showSearch)
+}
+
+function refresh() {
+  emit('queryTable')
+}
+
+function dataChange(data) {
+  if (!props.columns) return
+  for (let item in props.columns) {
+    const key = props.columns[item].key
+    props.columns[item].visible = !data.includes(key)
+  }
+}
+
+function showColumn() {
+  open.value = true
+}
 </script>
 <style lang="scss" scoped>
 :deep(.el-transfer__button) {

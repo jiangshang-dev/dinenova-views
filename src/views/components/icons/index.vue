@@ -35,26 +35,18 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import svgIcons from './svg-icons'
 import elementIcons from './element-icons'
 
-export default {
-  name: 'Icons',
-  data() {
-    return {
-      svgIcons,
-      elementIcons
-    }
-  },
-  methods: {
-    generateIconCode(symbol) {
-      return `<svg-icon icon-class="${symbol}" />`
-    },
-    generateElementIconCode(symbol) {
-      return `<i class="el-icon-${symbol}" />`
-    }
-  }
+defineOptions({ name: 'Icons' })
+
+function generateIconCode(symbol) {
+  return `<svg-icon icon-class="${symbol}" />`
+}
+
+function generateElementIconCode(symbol) {
+  return `<i class="el-icon-${symbol}" />`
 }
 </script>
 

@@ -1,145 +1,130 @@
-<script>
-import {getDelete, getInfo, getSettingsList, save, updateStatus} from "@/api/settings/settings";
-import {getStoreList} from "@/api/store";
-import {getTableInfo} from "@/api/table";
+<script setup>
+import { ref, reactive } from 'vue'
+import { ElMessage } from 'element-plus'
+import { addDateRange } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getDelete, getInfo, getSettingsList, save, updateStatus } from '@/api/settings/settings'
+import { getStoreList } from '@/api/store'
 
-export default {
+defineOptions({ name: 'Settings' })
 
-  data() {
-    return {
-      merchantOptions: [],
-      // 遮罩层
-      loading: true,
-      // 总条数
-      total: 0,
-      // 是否显示弹出层
-      open: false,
-      // 标题
-      title: "",
-      form: {},
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        code: '',
-        status: ''
-      },
-      // 表格数据
-      list: [],
-      // 表单校验
-      rules: {
-        color: [
-          {required: true, message: "桌码不能为空", trigger: "blur"},
-          {min: 3, max: 7, message: '颜色编码长度必须介于 3 和 7 之间', trigger: 'blur'}
-        ],
-        merchantId: [
-          {required: true, message: "所属商户不能为空", trigger: "blur"},
-        ]
-      }
-    }
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    cancel() {
-    },
-    submitForm() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id) {
-            save(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-          } else {
-            save(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
-            });
-          }
-        }
-      });
-    },
-    getList() {
-      getSettingsList(this.queryParams).then(res => {
-        console.log('res=====', res.data)
-        console.log('res=====', res.data.paginationResponse.content)
-        this.list = res.data.paginationResponse.content
-        this.total = res.data.paginationResponse.totalElements;
-        this.loading = false;
-      })
-      getStoreList(this.addDateRange(this.queryParams, this.dateRange)).then(response => {
-          this.merchantOptions = response.data.merchantList;
-          this.loading = false;
-        }
-      );
-    },
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增";
-    },
-    handleUpdate(row) {
-      this.open = true;
-      this.title = "修改";
-
-      const id = row.id || this.ids;
-      getInfo(id).then(response => {
-        console.log('ressss', response.data.mt_all_settingInfo)
-        this.form = response.data.mt_all_settingInfo;
-        this.open = true;
-        this.title = "编辑桌码";
-      });
-    },
-    handleDelete(row) {
-      getDelete(row.id).then(result => {
-        this.$message({
-          message: '删除成功',
-          type: 'success'
-        });
-        this.getList();
-      })
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        code: "",
-        description: "",
-        storeId: "",
-        maxPeople: 0,
-        sort: 0,
-        status: "A",
-      };
-      this.resetForm("form");
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      console.log('row:', row)
-      let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.id + '"吗？').then(function () {
-        return updateStatus(row.id, row.status);
-      }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
-      }).catch(function () {
-        row.status = row.status === "S" ? "A" : "S";
-      });
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-  }
+const merchantOptions = ref([])
+const loading = ref(true)
+const total = ref(0)
+const open = ref(false)
+const title = ref('')
+const form = reactive({})
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  code: '',
+  status: ''
+})
+const list = ref([])
+const dateRange = ref([])
+const ids = ref([])
+const defaultSort = { prop: 'id', order: 'descending' }
+const rules = {
+  color: [
+    { required: true, message: '桌码不能为空', trigger: 'blur' },
+    { min: 3, max: 7, message: '颜色编码长度必须介于 3 和 7 之间', trigger: 'blur' }
+  ],
+  merchantId: [{ required: true, message: '所属商户不能为空', trigger: 'blur' }]
 }
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function cancel() {}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      save(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
+    }
+  })
+}
+
+function getList() {
+  getSettingsList(queryParams).then(res => {
+    console.log('res=====', res.data)
+    console.log('res=====', res.data.paginationResponse.content)
+    list.value = res.data.paginationResponse.content
+    total.value = res.data.paginationResponse.totalElements
+    loading.value = false
+  })
+  getStoreList(addDateRange(queryParams, dateRange.value)).then(response => {
+    merchantOptions.value = response.data.merchantList
+    loading.value = false
+  })
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增'
+}
+
+function handleUpdate(row) {
+  open.value = true
+  title.value = '修改'
+  const id = row.id || ids.value
+  getInfo(id).then(response => {
+    console.log('ressss', response.data.mt_all_settingInfo)
+    Object.assign(form, response.data.mt_all_settingInfo)
+    open.value = true
+    title.value = '编辑桌码'
+  })
+}
+
+function handleDelete(row) {
+  getDelete(row.id).then(() => {
+    ElMessage({ message: '删除成功', type: 'success' })
+    getList()
+  })
+}
+
+function reset() {
+  Object.assign(form, {
+    id: '',
+    code: '',
+    description: '',
+    storeId: '',
+    maxPeople: 0,
+    sort: 0,
+    status: 'A'
+  })
+  formRef.value?.resetFields()
+}
+
+function handleStatusChange(row) {
+  console.log('row:', row)
+  const text = row.status == 'A' ? '启用' : '禁用'
+  modal.confirm('确认要' + text + '"' + row.id + '"吗？').then(function () {
+    return updateStatus(row.id, row.status)
+  }).then(() => {
+    modal.msgSuccess(text + '成功')
+  }).catch(function () {
+    row.status = row.status === 'S' ? 'A' : 'S'
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+getList()
 </script>
 
 <template>
@@ -221,7 +206,7 @@ export default {
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="所属商户" prop="merchantId">

@@ -60,7 +60,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="消息类型" prop="name">
@@ -98,142 +98,116 @@
   </div>
 </template>
 
-<script>
-import { getSubMessageList, getSubMessageInfo, saveSubMessage, deleteSubMessage } from "@/api/subMessage";
-export default {
-  name: "SubMessageIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { key: '', templateId: '', tid: '', name: '', params: [] },
-      paramTips: "格式如：{{thing1.DATA}}，详见小程序模板消息详情",
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        title: '',
-        status: ''
-      },
-      // 表单校验
-      rules: {
-        name: [
-          { required: true, message: "模板名称不能为空", trigger: "blur" },
-        ],
-        templateId: [
-          { required: true, message: "模板ID不能为空", trigger: "blur" },
-        ],
-        tid: [
-          { required: true, message: "模板编号不能为空", trigger: "blur" },
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getSubMessageList(this.queryParams).then( response => {
-          this.list = response.data.dataList;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增订阅消息模板";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        key: "",
-        name: "",
-        tid: "",
-        templateId: "",
-        params: []
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-            saveSubMessage(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-        }
-      });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const key = row.key;
-      getSubMessageInfo(key).then(response => {
-        this.form = response.data;
-        this.open = true;
-        this.title = "编辑订阅消息";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
-        return deleteSubMessage(row.id);
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+<script setup>
+import { ref, reactive } from 'vue'
+import modal from '@/plugins/modal'
+import { getSubMessageList, getSubMessageInfo, saveSubMessage, deleteSubMessage } from '@/api/subMessage'
+
+defineOptions({ name: 'SubMessageIndex' })
+
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const list = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const form = reactive({ key: '', templateId: '', tid: '', name: '', params: [] })
+const paramTips = '格式如：{{thing1.DATA}}，详见小程序模板消息详情'
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  title: '',
+  status: ''
+})
+const rules = {
+  name: [{ required: true, message: '模板名称不能为空', trigger: 'blur' }],
+  templateId: [{ required: true, message: '模板ID不能为空', trigger: 'blur' }],
+  tid: [{ required: true, message: '模板编号不能为空', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getSubMessageList(queryParams).then(response => {
+    list.value = response.data.dataList
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增订阅消息模板'
+}
+
+function reset() {
+  Object.assign(form, { key: '', name: '', tid: '', templateId: '', params: [] })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveSubMessage(form).then(() => {
+        modal.msgSuccess('修改成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const key = row.key
+  getSubMessageInfo(key).then(response => {
+    Object.assign(form, response.data)
+    open.value = true
+    title.value = '编辑订阅消息'
+  })
+}
+
+function handleDelete(row) {
+  modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function () {
+    return deleteSubMessage(row.id)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>
 <style rel="stylesheet/scss" lang="scss">
 .msg-type {

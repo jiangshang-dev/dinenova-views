@@ -48,13 +48,16 @@
   </el-dialog>
 </template>
 
-<script>
+<script setup>
 import { doRecharge } from "@/api/point";
-import { getMemberInfo } from "@/api/member";
-export default {
-  name: "pointRecharge",
-  props: {
-    showDialog:{
+import { getMemberInfo as getMemberInfoApi } from "@/api/member";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'pointRecharge' })
+
+const props = defineProps({
+showDialog:{
       type:[Boolean],
       default:()=>false
     },
@@ -62,10 +65,12 @@ export default {
       type:[String],
       default:()=> ''
     }
-  },
-  data() {
-    return {
-      // 遮罩层
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+// 遮罩层
       loading: false,
       memberInfo: { name: '', id: '', point: 0 },
       // 表单参数
@@ -80,50 +85,58 @@ export default {
           { pattern: /^[0-9]{1,10}$/, message: `请输入1-10位数字`, trigger: 'blur' }
         ]
       }
-    };
-  },
-  watch: {
-    showDialog(value) {
-      if (value) {
-          this.getMemberInfo()
-      }
-    }
-  },
-  methods: {
-    // 查询会员信息
-    getMemberInfo() {
-      this.loading = true;
-      getMemberInfo(this.userId).then(response => {
-          this.form.userId = response.data.memberInfo.id;
-          this.memberInfo = response.data.memberInfo;
-          this.loading = false;
+})
+const { loading, memberInfo, form, rules } = toRefs(state)
+
+function getMemberInfo() {
+
+      loading.value = true;
+      getMemberInfoApi(props.userId).then(response => {
+          form.value.userId = response.data.memberInfo.id;
+          memberInfo.value = response.data.memberInfo;
+          loading.value = false;
         }
       );
-    },
-    // 取消按钮
-    cancel() {
-      this.$emit('closeDialog','point');
-    },
-    // 充值表单
-    reset() {
-      this.form.userId = '';
-      this.form.type = '1';
-      this.form.amount = '';
-      this.form.remark = '';
-      this.memberInfo = { name: '', id: '', point: 0 };
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function cancel() {
+
+      emit('closeDialog','point');
+    
+}
+
+function reset() {
+
+      form.value.userId = '';
+      form.value.type = '1';
+      form.value.amount = '';
+      form.value.remark = '';
+      memberInfo.value = { name: '', id: '', point: 0 };
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-            doRecharge(this.form).then(response => {
-               this.$alert("积分操作成功！");
-               this.$emit('closeDialog','point');
-               this.reset();
+            doRecharge(form.value).then(response => {
+               modal.alert("积分操作成功！");
+               emit('closeDialog','point');
+               reset();
             });
         }
       });
-    }
-  }
-};
+    
+}
+
+watch(() => props.showDialog, (value) => {
+      if (value) {
+          getMemberInfo()
+      }
+    })
+
+watch(() => props.if, (value) => {
+          getMemberInfo()
+      })
 </script>

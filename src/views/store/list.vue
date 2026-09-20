@@ -100,7 +100,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="店铺名称" prop="name">
@@ -264,17 +264,19 @@
         <el-row v-hasPermi="['store:paySetting']">
           <el-col :span="24">
             <el-form-item label="微信支付证书" prop="wxCertPath">
-              <el-upload
-                class="upload-cert"
-                :action="uploadAction"
-                :file-list="uploadFiles"
-                :auto-upload="true"
-                :show-file-list="false"
-                :headers="uploadHeader"
-                :on-success="handleUploadCertSuccess">
-                <div class="file-name">{{ wxCertPath }}</div>
-                <el-button type="primary" icon="el-icon-upload2" size="small">点击上传</el-button>
-              </el-upload>
+              <div class="cert-upload">
+                <el-input v-model="wxCertPath" placeholder="请上传微信支付证书" readonly />
+                <el-upload
+                  class="upload-cert"
+                  :action="uploadAction"
+                  :file-list="uploadFiles"
+                  :auto-upload="true"
+                  :show-file-list="false"
+                  :headers="uploadHeader"
+                  :on-success="handleUploadCertSuccess">
+                  <el-button type="primary" icon="el-icon-upload2" size="small">点击上传</el-button>
+                </el-upload>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -327,232 +329,226 @@
   </div>
 </template>
 
-<script>
-import FuintQrCode from '@/components/Fuint/QrCode';
-import { getToken } from '@/utils/auth';
-import { getStoreList, updateStoreStatus, getStoreInfo, saveStore } from "@/api/store";
-export default {
-  name: "StoreList",
-  components: {
-    FuintQrCode
-  },
-  data() {
-    return {
-      // 二维码
-      qr: null,
-      // 二维码对话框
-      openQrCode: false,
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 日期范围
-      dateRange: [],
-      // 默认排序
-      defaultSort: {prop: 'operTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', name: '', logo: '', merchantId: this.$store.getters.merchantId, wxMchId: '', wxApiV2: '', wxCertPath: '', alipayAppId: '', alipayPrivateKey: '', alipayPublicKey: '' ,license: '', creditCode:'', bankName: '', bankCardName: '', bankCardNo: '', isDefault: "N", status: "A" },
-      // 微信支付证书
-      wxCertPath: '',
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      // 隐藏上传
-      hideUpload: false,
-      // 上传文件列表
-      uploadFiles: [],
-      uploadHeader: { 'Access-Token' : getToken() },
-      merchantOptions: [],
-      // 图片根目录
-      imagePath: "",
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        name: '',
-        status: ''
-      },
-      // 表单校验
-      rules: {
-        name: [
-          { required: true, message: "店铺名称不能为空", trigger: "blur" },
-          { min: 2, max: 30, message: '店铺名称长度必须介于 2 和 30 之间', trigger: 'blur' }
-        ],
-        merchantId: [
-          { required: true, message: "所属商户不能为空", trigger: "blur" },
-        ],
-        contact: [
-          { required: true, message: "联系人姓名不能为空", trigger: "blur" },
-          { min: 2, max: 30, message: '联系人姓名长度必须介于 2 和 30 之间', trigger: 'blur' }
-        ],
-        phone: [
-          { required: true, message: "联系人电话不能为空", trigger: "blur" },
-          { min: 6, max: 30, message: '联系人电话长度必须介于 6 和 30 之间', trigger: 'blur' }
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getStoreList(this.addDateRange(this.queryParams, this.dateRange)).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.merchantOptions = response.data.merchantList;
-          this.imagePath = response.data.imagePath;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"店铺吗？').then(function() {
-        return updateStoreStatus(row.id, row.status);
-      }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
-      }).catch(function() {
-        row.status = row.status === "N" ? "A" : "N";
-      });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.operId)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增店铺";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        name: "",
-        logo: "",
-        merchantId: this.$store.getters.merchantId,
-        status: "A",
-        isDefault: "N",
-        wxCertPath: ""
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id) {
-              saveStore(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
-              });
-          } else {
-              saveStore(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
-              });
-          }
-        }
-      });
-    },
-    // 二维码
-    handleQrCode(row) {
-      this.qr = { type: "store", id: row.id };
-      this.openQrCode = true;
-    },
-    // 关闭二维码
-    closeDialog() {
-      this.openQrCode = false;
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getStoreInfo(id).then(response => {
-        this.form = response.data.storeInfo;
-        this.wxCertPath = this.form.wxCertPath;
-        this.open = true;
-        this.title = "编辑店铺";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const name = row.name || this.id;
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
-        return updateStoreStatus(row.id, 'D');
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
-    },
-    handleUploadSuccess(file) {
-      this.form.logo = file.data.fileName;
-    },
-    handleUploadLicenseSuccess(file) {
-      this.form.license = file.data.fileName;
-    },
-    handleUploadCertSuccess(file) {
-      this.form.wxCertPath = file.data.fileName;
-      this.wxCertPath = file.data.fileName;
+<script setup>
+import { ref, reactive } from 'vue'
+import { useStore } from 'vuex'
+import { parseTime, addDateRange } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import FuintQrCode from '@/components/Fuint/QrCode'
+import { getToken } from '@/utils/auth'
+import { getStoreList, updateStoreStatus, getStoreInfo, saveStore } from '@/api/store'
+
+defineOptions({ name: 'StoreList' })
+
+const vuexStore = useStore()
+
+const qr = ref(null)
+const openQrCode = ref(false)
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const open = ref(false)
+const dateRange = ref([])
+const defaultSort = { prop: 'operTime', order: 'descending' }
+const form = reactive({
+  id: '',
+  name: '',
+  logo: '',
+  merchantId: vuexStore.getters.merchantId,
+  wxMchId: '',
+  wxApiV2: '',
+  wxCertPath: '',
+  alipayAppId: '',
+  alipayPrivateKey: '',
+  alipayPublicKey: '',
+  license: '',
+  creditCode: '',
+  bankName: '',
+  bankCardName: '',
+  bankCardNo: '',
+  isDefault: 'N',
+  status: 'A'
+})
+const wxCertPath = ref('')
+const uploadAction = import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload'
+const hideUpload = ref(false)
+const uploadFiles = ref([])
+const uploadHeader = { 'Access-Token': getToken() }
+const merchantOptions = ref([])
+const imagePath = ref('')
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  name: '',
+  status: ''
+})
+const rules = {
+  name: [
+    { required: true, message: '店铺名称不能为空', trigger: 'blur' },
+    { min: 2, max: 30, message: '店铺名称长度必须介于 2 和 30 之间', trigger: 'blur' }
+  ],
+  merchantId: [{ required: true, message: '所属商户不能为空', trigger: 'blur' }],
+  contact: [
+    { required: true, message: '联系人姓名不能为空', trigger: 'blur' },
+    { min: 2, max: 30, message: '联系人姓名长度必须介于 2 和 30 之间', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '联系人电话不能为空', trigger: 'blur' },
+    { min: 6, max: 30, message: '联系人电话长度必须介于 6 和 30 之间', trigger: 'blur' }
+  ]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getStoreList(addDateRange(queryParams, dateRange.value)).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    merchantOptions.value = response.data.merchantList
+    imagePath.value = response.data.imagePath
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  dateRange.value = []
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleStatusChange(row) {
+  const text = row.status == 'A' ? '启用' : '禁用'
+  modal.confirm('确认要' + text + '"' + row.name + '"店铺吗？').then(function () {
+    return updateStoreStatus(row.id, row.status)
+  }).then(() => {
+    modal.msgSuccess(text + '成功')
+  }).catch(function () {
+    row.status = row.status === 'N' ? 'A' : 'N'
+  })
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.operId)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增店铺'
+}
+
+function reset() {
+  Object.assign(form, {
+    id: '',
+    name: '',
+    logo: '',
+    merchantId: vuexStore.getters.merchantId,
+    status: 'A',
+    isDefault: 'N',
+    wxCertPath: ''
+  })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveStore(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleQrCode(row) {
+  qr.value = { type: 'store', id: row.id }
+  openQrCode.value = true
+}
+
+function closeDialog() {
+  openQrCode.value = false
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getStoreInfo(id).then(response => {
+    Object.assign(form, response.data.storeInfo)
+    wxCertPath.value = form.wxCertPath
+    open.value = true
+    title.value = '编辑店铺'
+  })
+}
+
+function handleDelete(row) {
+  const name = row.name || row.id
+  modal.confirm('是否确认删除"' + name + '"的数据项？').then(function () {
+    return updateStoreStatus(row.id, 'D')
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+function handleUploadSuccess(file) {
+  form.logo = file.data.fileName
+}
+
+function handleUploadLicenseSuccess(file) {
+  form.license = file.data.fileName
+}
+
+function handleUploadCertSuccess(file) {
+  form.wxCertPath = file.data.fileName
+  wxCertPath.value = file.data.fileName
+}
+
+getList()
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {
   width: 60px;
   height: 50px;
-  line-height: 60px;
+  line-height: 50px;
+}
+.cert-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.cert-upload .el-input {
+  flex: 1;
 }
 .upload-cert :deep(.el-upload) {
-   width: 20px;
-   height: 20px;
-   line-height: 20px;
-}
-.upload-cert .file-name {
-  width: 700px;
-  text-align: left;
+  width: auto;
+  height: auto;
+  line-height: inherit;
 }
 </style>

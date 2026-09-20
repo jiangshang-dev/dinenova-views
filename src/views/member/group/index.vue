@@ -148,13 +148,18 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getGroupList, updateGroupStatus, getGroupInfo, saveGroup, deleteGroup } from "@/api/memberGroup";
-export default {
-  name: "MemberGroupIndex",
-  data() {
-    return {
-      // 遮罩层
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'MemberGroupIndex' })
+
+const queryFormRef = ref(null)
+const formRef = ref(null)
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 标题
       title: "",
@@ -191,131 +196,151 @@ export default {
           { required: true, message: "分组名称不能为空", trigger: "blur" },
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getGroupList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.userGradeList = response.data.userGradeList;
-          this.loading = false;
+})
+const { loading, title, ids, parentName, multiple, showSearch, total, list, userGradeList, open, defaultSort, form, queryParams, rules } = toRefs(state)
+
+function getList() {
+
+      loading.value = true;
+      getGroupList(queryParams.value).then( response => {
+          list.value = response.data.paginationResponse.content;
+          total.value = response.data.paginationResponse.totalElements;
+          userGradeList.value = response.data.userGradeList;
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleStatusChange(row) {
+
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
+      modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
         return updateGroupStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd(parent) {
-      this.reset();
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id)
+      multiple.value = !selection.length
+    
+}
+
+function handleSortChange(column, prop, order) {
+
+      queryParams.value.orderByColumn = column.prop;
+      queryParams.value.isAsc = column.order;
+      getList();
+    
+}
+
+function handleAdd(parent) {
+
+      reset();
       if (parent.id) {
-          this.form.parentId = parent.id;
-          this.parentName = parent.name;
+          form.value.parentId = parent.id;
+          parentName.value = parent.name;
       }
-      this.open = true;
-      this.title = "新增会员分组";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+      open.value = true;
+      title.value = "新增会员分组";
+    
+}
+
+function reset() {
+
+      form.value = {
         id: "",
         name: "",
         parentId: 0,
         description: "",
         status: "A"
       };
-      this.parentName = "";
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      parentName.value = "";
+      formRef.value?.resetFields();
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-              saveGroup(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.value.id) {
+              saveGroup(form.value).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveGroup(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
+              saveGroup(form.value).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      const app = this;
-      app.reset();
-      const id = row.id || app.ids;
-      app.form.parentId = row.parentId || 0;
-      if (app.form.parentId) {
-          getGroupInfo(this.form.parentId).then(response => {
+    
+}
+
+function handleUpdate(row) {
+
+      ;
+      reset();
+      const id = row.id || ids.value;
+      form.value.parentId = row.parentId || 0;
+      if (form.value.parentId) {
+          getGroupInfo(form.value.parentId).then(response => {
               if (response.data) {
-                  app.parentName = response.data.groupInfo.name;
+                  parentName.value = response.data.groupInfo.name;
               }
           });
       }
       getGroupInfo(id).then(response => {
-          app.form = response.data.groupInfo;
-          app.open = true;
-          app.title = "编辑会员分组";
+          form.value = response.data.groupInfo;
+          open.value = true;
+          title.value = "编辑会员分组";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
         return deleteGroup(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    }
-  }
-};
+    
+}
+
+getList()
 </script>
 

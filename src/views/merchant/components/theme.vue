@@ -37,67 +37,80 @@
     </el-form>
   </div>
 </template>
-<script>
+<script setup>
 import { getWxOrderTemplate, saveTemplate } from "@/api/template";
 import theme1 from "@/assets/img/theme1.png";
 import theme2 from "@/assets/img/theme2.png";
 import theme3 from "@/assets/img/theme3.png";
-export default {
-  props: ['storeId'],
-  data() {
-    return {
-      themeList: [
-        {
-          style: "1",
-          name: "模板一",
-          image: theme1,
-        },
-        {
-          style: "2",
-          name: "模板二",
-          image: theme2,
-        },
-        {
-          style: "3",
-          name: "模板三",
-          image: theme3,
-        },
-      ],
-      form: {
-        id: '', //店铺ID
-        color: "#DF5353",
-        templateValue: "1",
-      },
-      // 店铺Id
-      store_Id: 0
-    };
-  },
-  created() {
-    this.getTemplate(this.storeId);
-  },
-  methods: {
-    //获取现有模板信息
-    getTemplate(id) {
-      this.form.id = id;
-      getWxOrderTemplate(id).then((res) => {
-        if (res.code === 200 && res.data) {
-          this.form.color = res.data.color || "#DF5353";
-          this.form.templateValue = `${res.data.templateValue || "1"}`;
-        }
-      });
+import { reactive, watch, onMounted, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'Theme' })
+
+const props = defineProps(['storeId'])
+
+const state = reactive({
+  themeList: [
+    {
+      style: "1",
+      name: "模板一",
+      image: theme1,
     },
-    //切换模板
-    select(style) {
-      this.form.templateValue = style;
+    {
+      style: "2",
+      name: "模板二",
+      image: theme2,
     },
-    //保存模板
-    onSubmit() {
-      saveTemplate(JSON.stringify(this.form)).then((response) => {
-        this.$modal.msgSuccess("保存成功");
-      });
+    {
+      style: "3",
+      name: "模板三",
+      image: theme3,
     },
+  ],
+  form: {
+    id: '', //店铺ID
+    color: "#DF5353",
+    templateValue: "1",
   },
-};
+  // 店铺Id
+  store_Id: 0
+})
+const { themeList, form, store_Id } = toRefs(state)
+
+function getTemplate(id) {
+  form.value.id = id;
+  store_Id.value = id;
+  getWxOrderTemplate(id).then((res) => {
+    if (res.code === 200 && res.data) {
+      form.value.color = res.data.color || "#DF5353";
+      form.value.templateValue = `${res.data.templateValue || "1"}`;
+    }
+  });
+}
+
+function select(style) {
+  form.value.templateValue = style;
+}
+
+function onSubmit() {
+  saveTemplate(JSON.stringify(form.value)).then(() => {
+    modal.msgSuccess("保存成功");
+  });
+}
+
+onMounted(() => {
+  if (props.storeId) {
+    getTemplate(props.storeId);
+  }
+})
+
+watch(() => props.storeId, (id) => {
+  if (id) {
+    getTemplate(id);
+  }
+})
+
+defineExpose({ getTemplate })
 </script>
 <style scoped lang="scss">
 .page-theme-container {

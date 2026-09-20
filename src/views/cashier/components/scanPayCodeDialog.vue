@@ -1,5 +1,5 @@
 <template>
-    <el-dialog class="common-dialog" title="扫码收款中..." :visible="showDialog" @close="submit" width="580px" destroy-on-close>
+    <el-dialog class="common-dialog" title="扫码收款中..." :model-value="showDialog" @close="submit" width="580px" destroy-on-close>
           <el-row>
             <el-col :span="24">
               <div class="main">
@@ -16,11 +16,14 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
+<script setup>
 import { doPay } from "@/api/cashier";
-export default {
-    props: {
-      showDialog: {
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'scanPayCodeDialog' })
+
+const props = defineProps({
+showDialog: {
         type:[Boolean],
         default:()=>false
       },
@@ -36,30 +39,32 @@ export default {
         type:[String],
         default:()=>'MICROPAY'
       }
-    },
-    data(){
-        return {
-          loading: false
-        }
-    },
-    methods: {
-       submit(code) {
-         const app = this;
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loading: false
+})
+const { loading } = toRefs(state)
+
+function submit(code) {
+
+         ;
          if (code == undefined) {
-             this.$emit('closeDialog','scanPayCodeDialog');
+             emit('closeDialog','scanPayCodeDialog');
          } else {
-             doPay({ orderId: app.orderId, authCode: code, payType: app.payType }).then( response => {
+             doPay({ orderId: props.orderId, authCode: code, payType: props.payType }).then( response => {
                 if (response.data.payment) {
-                    app.$emit('closeDialog', 'scanPayCodeDialog');
-                    app.$emit('showPayResult', { isSuccess: true, payAmount: app.payAmount, orderId: app.orderId });
+                    emit('closeDialog', 'scanPayCodeDialog');
+                    emit('showPayResult', { isSuccess: true, payAmount: props.payAmount, orderId: props.orderId });
                 } else {
-                    app.$emit('closeDialog', 'scanPayCodeDialog');
-                    app.$emit('showPayResult', { isSuccess: false, payAmount: app.payAmount, orderId: app.orderId });
+                    emit('closeDialog', 'scanPayCodeDialog');
+                    emit('showPayResult', { isSuccess: false, payAmount: props.payAmount, orderId: props.orderId });
                 }
              })
          }
-       }
-    }
+       
 }
 </script>
 <style lang="scss" scoped>

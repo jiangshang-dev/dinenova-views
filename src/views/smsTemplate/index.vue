@@ -90,7 +90,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="模板名称" prop="name">
@@ -139,157 +139,119 @@
   </div>
 </template>
 
-<script>
-import { getSmsTemplateList, getSmsTemplateInfo, saveSmsTemplate, deleteSmsTemplate } from "@/api/smsTemplate";
-export default {
-  name: "SmsTemplateIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', content: '', code: '', uname: '', name: '', status: "A" },
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        code: '',
-        content: '',
-        status: ''
-      },
-      // 表单校验
-      rules: {
-        name: [
-          { required: true, message: "模板名称不能为空", trigger: "blur" },
-        ],
-        uname: [
-          { required: true, message: "模板英文名称不能为空", trigger: "blur" },
-        ],
-        code: [
-          { required: true, message: "模板编码不能为空，请登录短信平台查看", trigger: "blur" },
-        ],
-        content: [
-          { required: true, message: "模板内容不能为空，请登录短信平台查看", trigger: "blur" },
-        ],
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getSmsTemplateList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增短信模板";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        name: "",
-        code: "",
-        uname: "",
-        content: "",
-        status: "A"
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id) {
-              saveSmsTemplate(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
-              });
-          } else {
-              saveSmsTemplate(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
-              });
-          }
-        }
-      });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getSmsTemplateInfo(id).then(response => {
-        this.form = response.data.smsTemplate;
-        this.open = true;
-        this.title = "编辑短信模板";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
-        return deleteSmsTemplate(row.id);
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+<script setup>
+import { ref, reactive } from 'vue'
+import { parseTime } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getSmsTemplateList, getSmsTemplateInfo, saveSmsTemplate, deleteSmsTemplate } from '@/api/smsTemplate'
+
+defineOptions({ name: 'SmsTemplateIndex' })
+
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const form = reactive({ id: '', content: '', code: '', uname: '', name: '', status: 'A' })
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  code: '',
+  content: '',
+  status: ''
+})
+const rules = {
+  name: [{ required: true, message: '模板名称不能为空', trigger: 'blur' }],
+  uname: [{ required: true, message: '模板英文名称不能为空', trigger: 'blur' }],
+  code: [{ required: true, message: '模板编码不能为空，请登录短信平台查看', trigger: 'blur' }],
+  content: [{ required: true, message: '模板内容不能为空，请登录短信平台查看', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getSmsTemplateList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增短信模板'
+}
+
+function reset() {
+  Object.assign(form, { id: '', name: '', code: '', uname: '', content: '', status: 'A' })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveSmsTemplate(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getSmsTemplateInfo(id).then(response => {
+    Object.assign(form, response.data.smsTemplate)
+    open.value = true
+    title.value = '编辑短信模板'
+  })
+}
+
+function handleDelete(row) {
+  modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function () {
+    return deleteSmsTemplate(row.id)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>
 

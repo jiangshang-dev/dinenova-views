@@ -15,7 +15,7 @@
           placeholder="所属店铺"
           clearable
           style="width: 180px">
-          <el-option :key="0" label="公共分类" v-if="!this.$store.getters.storeId" :value="0" />
+          <el-option :key="0" label="公共分类" v-if="!storeId" :value="0" />
           <el-option v-for="storeInfo in storeOptions" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
         </el-select>
       </el-form-item>
@@ -104,7 +104,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="分类名称" prop="name">
@@ -149,8 +149,8 @@
                    :headers="uploadHeader"
                    :on-success="handleUploadSuccess">
                 <img
-                  v-if="this.form.logo"
-                  :src="imagePath + this.form.logo"
+                  v-if="form.logo"
+                  :src="imagePath + form.logo"
                   class="list-img" />
                 <i class="el-icon-plus"></i>
               </el-upload>
@@ -184,185 +184,198 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { useStore } from 'vuex'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
 import { getToken } from '@/utils/auth'
 import { getGoodsCateList, getGoodsCateInfo, saveGoodsCate, updateGoodsCateStatus } from "@/api/goodsCate";
-export default {
-  name: "GoodsCateIndex",
-  data() {
-    return {
-      storeId: this.$store.getters.storeId,
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 图片根目录
-      imagePath: "",
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 店铺列表
-      storeOptions: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'sort', order: 'descending'},
-      // 表单参数
-      form: { storeId: this.$store.getters.storeId, id: '', name: '', logo: '', sort: 0, status: "A" },
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      uploadHeader: { 'Access-Token' : getToken() },
-      // 隐藏上传
-      hideUpload: false,
-      // 上传文件列表
-      uploadFiles: [],
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'GoodsCateIndex' })
+
+
+const store = useStore()
+
+const storeId = store.getters.storeId
+
+const loading = ref(true)
+
+const title = ref("")
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const showSearch = ref(true)
+
+const imagePath = ref("")
+
+const total = ref(0)
+
+const list = reactive([])
+
+const storeOptions = reactive([])
+
+const open = ref(false)
+
+const defaultSort = reactive({prop: 'sort', order: 'descending'})
+
+const form = reactive({ storeId: store.getters.storeId, id: '', name: '', logo: '', sort: 0, status: "A" })
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const uploadHeader = reactive({ 'Access-Token' : getToken() })
+
+const hideUpload = ref(false)
+
+const uploadFiles = reactive([])
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         name: '',
         status: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         name: [
           { required: true, message: "名称不能为空", trigger: "blur" },
           { min: 2, max: 200, message: '名称长度必须介于2 和 200 之间', trigger: 'blur' }
         ],
         logo: [{ required: true, message: "请上传图片", trigger: "blur" }]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询分类列表
-    getList() {
-      this.loading = true;
-      getGoodsCateList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.imagePath = response.data.imagePath;
-          this.storeOptions = response.data.storeList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getGoodsCateList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          imagePath.value = response.data.imagePath;
+          storeOptions.length = 0; storeOptions.push(...(response.data.storeList || []));
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
         return updateGoodsCateStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增商品分类";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleAdd() {
+      reset();
+      open.value = true;
+      title.value = "新增商品分类";
+    }
+
+function reset() {
+      Object.assign(form, {
         id: "",
-        storeId: this.storeId,
+        storeId: storeId,
         name: "",
         status: "A",
         logo: "",
         sort: 0,
         description: ""
-      };
-      this.uploadFiles = []
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      });
+      uploadFiles.length = 0
+      formRef.value?.resetFields();
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.logo.length < 1) {
-              this.form.logo = '/static/defaultImage/none.png';
+          if (form.logo.length < 1) {
+              form.logo = '/static/defaultImage/none.png';
           }
-          if (this.form.id) {
-              saveGoodsCate(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.id) {
+              saveGoodsCate(form).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveGoodsCate(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
+              saveGoodsCate(form).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
+    }
+
+function handleUpdate(row) {
+      reset();
+      const id = row.id || ids;
       getGoodsCateInfo(id).then(response => {
-        this.form = response.data.cateInfo;
-        this.uploadFiles = [{ url: response.data.imagePath + this.form.logo, status: 'finished'}]
-        this.open = true;
-        this.title = "编辑商品分类";
+        Object.assign(form, response.data.cateInfo);
+        uploadFiles.length = 0; uploadFiles.push(...[{ url: response.data.imagePath + form.logo, status: 'finished'}])
+        open.value = true;
+        title.value = "编辑商品分类";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    }
+
+function handleDelete(row) {
       const name = row.name
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
+      modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
         return updateGoodsCateStatus(row.id, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    handleUploadSuccess(file) {
-      this.form.logo = file.data.fileName;
     }
-  }
-};
+
+function handleUploadSuccess(file) {
+      form.logo = file.data.fileName;
+    }
+
+getList();
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

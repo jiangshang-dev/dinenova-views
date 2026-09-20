@@ -1,5 +1,5 @@
 <template>
-    <el-dialog class="common-dialog" title="关联会员" :visible="showDialog" @close="close" width="750px" destroy-on-close>
+    <el-dialog class="common-dialog" title="关联会员" :model-value="showDialog" @close="close" width="750px" destroy-on-close>
         <el-form ref="form" v-if="!memberInfo.id" class="form" :model="form" label-width="100px">
             <el-form-item label="会员关键字" class="form-item" prop="keyword">
               <el-input class="input-item" v-model="form.keyword" v-focus placeholder="请输入会员手机号码、会员名称或扫码会员二维码" clearable maxlength="200" />
@@ -29,71 +29,84 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
+<script setup>
 import { getMemberInfo } from "@/api/cashier";
-export default {
-    props: {
-      showDialog: {
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'switchMemberDialog' })
+
+const vFocus = {
+  mounted(el) {
+    el.querySelector('input')?.focus()
+  }
+}
+
+const props = defineProps({
+showDialog: {
         type:[Boolean],
         default:()=>false
       }
-    },
-    // 自动获取焦点
-    directives: {
-      focus: {
-        inserted: function (el) {
-           el.querySelector('input').focus();
-        }
-      }
-    },
-    watch: {
-      showDialog(value) {
-        if (value) {
-            this.memberInfo = {};
-            this.form.keyword = '';
-        }
-      },
-    },
-    data(){
-        return {
-          loading: false,
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loading: false,
           form: { keyword: '' },
           memberInfo: {}
-        }
-    },
-    methods: {
-        doQuery() {
-          const app = this;
-          const keyword = this.form.keyword.trim();
+})
+const { loading, form, memberInfo } = toRefs(state)
+
+function doQuery() {
+
+          ;
+          const keyword = form.value.keyword.trim();
           if (keyword.length > 0) {
-              getMemberInfo( { keyword: this.form.keyword.trim() }).then(response => {
+              getMemberInfo( { keyword: form.value.keyword.trim() }).then(response => {
                 if (response.data.memberInfo) {
-                    app.memberInfo = response.data.memberInfo;
+                    memberInfo.value = response.data.memberInfo;
                 } else {
-                    app.$modal.alert("未查询到该会员信息，请确认！");
+                    modal.alert("未查询到该会员信息，请确认！");
                     return false;
                 }
               })
           } else {
-             app.$modal.alert("请先输入会员关键字！");
+             modal.alert("请先输入会员关键字！");
           }
-        },
-        doSubmit() {
-           const app = this;
-           if (app.memberInfo.id) {
-               app.$emit('doSwitchMember', app.memberInfo);
-           } else {
-               app.$emit('doSwitchMember', null);
-           }
-        },
-        cancel() {
-           this.memberInfo = {};
-        },
-        close() {
-           this.$emit('doSwitchMember',0);
-        }
-    }
+        
 }
+
+function doSubmit() {
+
+           ;
+           if (memberInfo.value.id) {
+               emit('doSwitchMember', memberInfo.value);
+           } else {
+               emit('doSwitchMember', null);
+           }
+        
+}
+
+function cancel() {
+
+           memberInfo.value = {};
+        
+}
+
+function close() {
+
+           emit('doSwitchMember',0);
+        
+}
+
+watch(() => props.showDialog, (value) => {
+        if (value) {
+            memberInfo.value = {};
+            form.value.keyword = '';
+        }
+      })
+
 </script>
 <style scoped>
   .form {

@@ -34,83 +34,45 @@
 
 </template>
 
-<script>
-export default {
-    data() {
-        return {
-            radioValue: 1,
-            cycle01: 1,
-            cycle02: 2,
-            average01: 0,
-            average02: 1,
-            checkboxList: [],
-            checkNum: this.$options.propsData.check
-        }
-    },
-    name: 'crontab-min',
-    props: ['check', 'cron'],
-    methods: {
-        // 单选按钮值变化时
-        radioChange() {
-            switch (this.radioValue) {
-                case 1:
-                    this.$emit('update', 'min', '*', 'min');
-                    break;
-                case 2:
-                    this.$emit('update', 'min', this.cycleTotal, 'min');
-                    break;
-                case 3:
-                    this.$emit('update', 'min', this.averageTotal, 'min');
-                    break;
-                case 4:
-                    this.$emit('update', 'min', this.checkboxString, 'min');
-                    break;
-            }
-        },
-        // 周期两个值变化时
-        cycleChange() {
-            if (this.radioValue == '2') {
-                this.$emit('update', 'min', this.cycleTotal, 'min');
-            }
-        },
-        // 平均两个值变化时
-        averageChange() {
-            if (this.radioValue == '3') {
-                this.$emit('update', 'min', this.averageTotal, 'min');
-            }
-        },
-        // checkbox值变化时
-        checkboxChange() {
-            if (this.radioValue == '4') {
-                this.$emit('update', 'min', this.checkboxString, 'min');
-            }
-        },
-
-    },
-    watch: {
-        'radioValue': 'radioChange',
-        'cycleTotal': 'cycleChange',
-        'averageTotal': 'averageChange',
-        'checkboxString': 'checkboxChange',
-    },
-    computed: {
-        // 计算两个周期值
-        cycleTotal: function () {
-            const cycle01 = this.checkNum(this.cycle01, 0, 58)
-            const cycle02 = this.checkNum(this.cycle02, cycle01 ? cycle01 + 1 : 1, 59)
-            return cycle01 + '-' + cycle02;
-        },
-        // 计算平均用到的值
-        averageTotal: function () {
-            const average01 = this.checkNum(this.average01, 0, 58)
-            const average02 = this.checkNum(this.average02, 1, 59 - average01 || 0)
-            return average01 + '/' + average02;
-        },
-        // 计算勾选的checkbox值合集
-        checkboxString: function () {
-            let str = this.checkboxList.join();
-            return str == '' ? '*' : str;
-        }
-    }
+<script setup>
+import { ref, computed, watch } from 'vue'
+defineOptions({ name: 'crontab-min' })
+const props = defineProps(['check', 'cron'])
+const emit = defineEmits(['update'])
+const radioValue = ref(1)
+const cycle01 = ref(1)
+const cycle02 = ref(2)
+const average01 = ref(0)
+const average02 = ref(1)
+const checkboxList = ref([])
+defineExpose({ radioValue, cycle01, cycle02, average01, average02, checkboxList })
+const cycleTotal = computed(() => {
+  const c1 = props.check(cycle01.value, 0, 58)
+  const c2 = props.check(cycle02.value, c1 ? c1 + 1 : 1, 59)
+  return c1 + '-' + c2
+})
+const averageTotal = computed(() => {
+  const a1 = props.check(average01.value, 0, 58)
+  const a2 = props.check(average02.value, 1, 59 - a1 || 0)
+  return a1 + '/' + a2
+})
+const checkboxString = computed(() => {
+  const str = checkboxList.value.join()
+  return str == '' ? '*' : str
+})
+function radioChange() {
+  switch (radioValue.value) {
+    case 1: emit('update', 'min', '*', 'min'); break
+    case 2: emit('update', 'min', cycleTotal.value, 'min'); break
+    case 3: emit('update', 'min', averageTotal.value, 'min'); break
+    case 4: emit('update', 'min', checkboxString.value, 'min'); break
+  }
 }
+function cycleChange() { if (radioValue.value == 2) emit('update', 'min', cycleTotal.value, 'min') }
+function averageChange() { if (radioValue.value == 3) emit('update', 'min', averageTotal.value, 'min') }
+function checkboxChange() { if (radioValue.value == 4) emit('update', 'min', checkboxString.value, 'min') }
+watch(radioValue, radioChange)
+watch(cycleTotal, cycleChange)
+watch(averageTotal, averageChange)
+watch(checkboxString, checkboxChange)
 </script>

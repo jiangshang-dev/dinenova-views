@@ -96,42 +96,38 @@
   </div>
 </template>
 
-<script>
-import { getHomeData, getStatisticData } from "@/api/home";
+<script setup>
+import { getHomeData as fetchHomeData, getStatisticData } from "@/api/home";
 import commonChart from './components/charts/index';
-export default {
-  name: "HomePage",
-  components: {
-    commonChart
-  },
-  data() {
-    return {
-       loading: false,
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+
+defineOptions({ name: 'HomePage' })
+
+const router = useRouter()
+const route = useRoute()
+const state = reactive({
+loading: false,
        homeData: { todayUser: 0, totalUser: 0, todayOrder: 0, totalOrder: 0, todayPay: 0, totalPay: 0, todayActiveUser: 0, totalPayUser: 0 },
        chart1: { title: '近七日订单数量', color: '#ff5b57', chartType: 'bar', header: ['订单统计'] },
        chart2: { title: '近七日会员活跃数', color: '#113a28', chartType: 'line', header: ['会员统计'] },
        chartData1: [],
        chartData2: [],
-    };
-  },
-  created() {
-    this.getHomeData();
-    this.getChartsData();
-  },
-  methods: {
-    // 查询首页数据
-    getHomeData() {
-      this.loading = true;
-      getHomeData().then(response => {
-          this.homeData = response.data;
-          this.loading = false
+})
+const { loading, homeData, chart1, chart2, chartData1, chartData2 } = toRefs(state)
+
+function getHomeData() {
+
+      loading.value = true;
+      fetchHomeData().then(response => {
+          homeData.value = response.data;
+          loading.value = false
         }
       );
-    },
-    // 查询统计数据
-    getChartsData() {
-      const app = this;
-      app.loading = true;
+}
+
+function getChartsData() {
+      loading.value = true;
       // 近7日订单数量和活跃会员数量
       getStatisticData({ tag : 'order,user_active' }).then(response => {
           const data = response.data;
@@ -146,22 +142,39 @@ export default {
              dataList1.push( { name: label, value0: value1 } );
              dataList2.push( { name: label, value0: value2 } );
           })
-          app.chartData1 = dataList1;
-          app.chartData2 = dataList2;
-          app.loading = false;
+          chartData1.value = dataList1;
+          chartData2.value = dataList2;
+          loading.value = false;
         }
       )
-    },
-    // 页面跳转
-    toTarget(url) {
-       this.$router.push( { path: url } );
-    },
-    // 去收银台
-    toCashier(url) {
-      window.open(url, '_blank');
+
+}
+
+function toTarget(url) {
+  if (!url) {
+    return
+  }
+  const [path, qs] = String(url).split('?')
+  if (!qs) {
+    router.push({ path })
+    return
+  }
+  const query = {}
+  qs.split('&').forEach(pair => {
+    const [key, value] = pair.split('=')
+    if (key) {
+      query[decodeURIComponent(key)] = decodeURIComponent(value || '')
     }
-  },
-};
+  })
+  router.push({ path, query })
+}
+
+function toCashier(url) {
+  window.open(url, '_blank')
+}
+
+getHomeData()
+getChartsData()
 </script>
 
 <style scoped lang="scss">

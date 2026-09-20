@@ -38,13 +38,15 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getToken } from "@/utils/auth";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  name: "FileUpload",
-  props: {
-    // 值
+defineOptions({ name: 'FileUpload' })
+
+const props = defineProps({
+    modelValue: [String, Object, Array],
     value: [String, Object, Array],
     // 数量限制
     limit: {
@@ -66,10 +68,12 @@ export default {
       type: Boolean,
       default: true
     }
-  },
-  data() {
-    return {
-      number: 0,
+})
+
+const emit = defineEmits(['update:modelValue', 'input'])
+
+const state = reactive({
+number: 0,
       uploadList: [],
       baseUrl: import.meta.env.VUE_APP_BASE_API,
       uploadFileUrl: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload', // 上传的图片服务器地址
@@ -77,113 +81,125 @@ export default {
         'Access-Token': getToken(),
       },
       fileList: [],
-    };
-  },
-  watch: {
-    value: {
-      handler(val) {
-        if (val) {
-          let temp = 1;
-          // 首先将值转为数组
-          const list = Array.isArray(val) ? val : this.value.split(',');
-          // 然后将数组转为对象数组
-          this.fileList = list.map(item => {
-            if (typeof item === "string") {
-              item = { name: item, url: item };
-            }
-            item.uid = item.uid || new Date().getTime() + temp++;
-            return item;
-          });
-        } else {
-          this.fileList = [];
-          return [];
-        }
-      },
-      deep: true,
-      immediate: true
-    }
-  },
-  computed: {
-    // 是否显示提示
-    showTip() {
-      return this.isShowTip && (this.fileType || this.fileSize);
-    },
-  },
-  methods: {
-    // 上传前校检格式和大小
-    handleBeforeUpload(file) {
+})
+const { number, uploadList, baseUrl, uploadFileUrl, headers, fileList } = toRefs(state)
+
+function handleBeforeUpload(file) {
+
       // 校检文件类型
-      if (this.fileType) {
+      if (props.fileType) {
         let fileExtension = "";
         if (file.name.lastIndexOf(".") > -1) {
           fileExtension = file.name.slice(file.name.lastIndexOf(".") + 1);
         }
-        const isTypeOk = this.fileType.some((type) => {
+        const isTypeOk = props.fileType.some((type) => {
           if (file.type.indexOf(type) > -1) return true;
           if (fileExtension && fileExtension.indexOf(type) > -1) return true;
           return false;
         });
         if (!isTypeOk) {
-          this.$modal.msgError(`文件格式不正确, 请上传${this.fileType.join("/")}格式文件!`);
+          modal.msgError(`文件格式不正确, 请上传${props.fileType.join("/")}格式文件!`);
           return false;
         }
       }
       // 校检文件大小
-      if (this.fileSize) {
-        const isLt = file.size / 1024 / 1024 < this.fileSize;
+      if (props.fileSize) {
+        const isLt = file.size / 1024 / 1024 < props.fileSize;
         if (!isLt) {
-          this.$modal.msgError(`上传文件大小不能超过 ${this.fileSize} MB!`);
+          modal.msgError(`上传文件大小不能超过 ${props.fileSize} MB!`);
           return false;
         }
       }
-      this.$modal.loading("正在上传文件，请稍候...");
-      this.number++;
+      modal.loading("正在上传文件，请稍候...");
+      number.value++;
       return true;
-    },
-    // 文件个数超出
-    handleExceed() {
-      this.$modal.msgError(`上传文件数量不能超过 ${this.limit} 个!`);
-    },
-    // 上传失败
-    handleUploadError(err) {
-      this.$modal.msgError("上传图片失败，请重试");
-      this.$modal.closeLoading()
-    },
-    // 上传成功回调
-    handleUploadSuccess(res) {
-      this.uploadList.push({ name: res.fileName, url: res.data.url });
-      if (this.uploadList.length === this.number) {
-        this.fileList = this.fileList.concat(this.uploadList);
-        this.uploadList = [];
-        this.number = 0;
-        this.$emit("input", this.listToString(this.fileList));
-        this.$modal.closeLoading();
+    
+}
+
+function handleExceed() {
+
+      modal.msgError(`上传文件数量不能超过 ${props.limit} 个!`);
+    
+}
+
+function handleUploadError(err) {
+
+      modal.msgError("上传图片失败，请重试");
+      modal.closeLoading()
+    
+}
+
+function handleUploadSuccess(res) {
+
+      uploadList.value.push({ name: res.fileName, url: res.data.url });
+      if (uploadList.value.length === number.value) {
+        fileList.value = fileList.value.concat(uploadList.value);
+        uploadList.value = [];
+        number.value = 0;
+        emitValue(listToString(fileList.value));
+        modal.closeLoading();
       }
-    },
-    // 删除文件
-    handleDelete(index) {
-      this.fileList.splice(index, 1);
-      this.$emit("input", this.listToString(this.fileList));
-    },
-    // 获取文件名称
-    getFileName(name) {
+    
+}
+
+function handleDelete(index) {
+
+      fileList.value.splice(index, 1);
+      emitValue(listToString(fileList.value));
+    
+}
+
+function getFileName(name) {
+
       if (name.lastIndexOf("/") > -1) {
         return name.slice(name.lastIndexOf("/") + 1);
       } else {
         return "";
       }
-    },
-    // 对象转成指定字符串分隔
-    listToString(list, separator) {
+    
+}
+
+function listToString(list, separator) {
+
       let strs = "";
       separator = separator || ",";
       for (let i in list) {
         strs += list[i].url + separator;
       }
       return strs != '' ? strs.substr(0, strs.length - 1) : '';
-    }
+    
+}
+
+const showTip = computed(() => {
+      return props.isShowTip && (props.fileType || props.fileSize);})
+
+function syncFileListFromProp(val) {
+  if (val) {
+    let temp = 1
+    const raw = props.modelValue !== undefined ? val : val
+    const list = Array.isArray(raw) ? raw : String(raw).split(',')
+    fileList.value = list.map((item) => {
+      if (typeof item === 'string') {
+        item = { name: item, url: item }
+      }
+      item.uid = item.uid || new Date().getTime() + temp++
+      return item
+    })
+  } else {
+    fileList.value = []
   }
-};
+}
+
+function emitValue(str) {
+  emit('input', str)
+  emit('update:modelValue', str)
+}
+
+watch(
+  () => (props.modelValue !== undefined ? props.modelValue : props.value),
+  (val) => syncFileListFromProp(val),
+  { deep: true, immediate: true }
+)
 </script>
 
 <style scoped lang="scss">

@@ -54,15 +54,21 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getMemberSetting, saveSetting } from "@/api/member";
 import memberCard from "./memberCard";
-export default {
-  name: "MemberSetting",
-  components: { memberCard },
-  data() {
-    return {
-      // 设置会员卡对话框
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'MemberSetting' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+const state = reactive({
+// 设置会员卡对话框
       openMemberCard: false,
       // 遮罩层
       loading: false,
@@ -83,49 +89,53 @@ export default {
           { required: true, message: "请选择", trigger: "blur" },
         ],
       }
-    };
-  },
-  created() {
-    this.getSettingInfo();
-  },
-  methods: {
-    // 查询配置
-    getSettingInfo() {
-      this.loading = true;
+})
+const { openMemberCard, loading, form, rules } = toRefs(state)
+
+function getSettingInfo() {
+
+      loading.value = true;
       getMemberSetting().then(response => {
-          this.form = response.data;
-          this.loading = false;
+          form.value = response.data;
+          loading.value = false;
         }
       );
-    },
-    // 取消按钮
-    cancel() {
-      this.$store.dispatch('tagsView/delView', this.$route)
-      this.$router.push('/')
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function cancel() {
+
+      store.dispatch('tagsView/delView', route)
+      router.push('/')
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-            const param = { getCouponNeedPhone: this.form.getCouponNeedPhone,
-                            submitOrderNeedPhone: this.form.submitOrderNeedPhone,
-                            loginNeedPhone: this.form.loginNeedPhone,
-                            openWxCard: this.form.openWxCard };
+            const param = { getCouponNeedPhone: form.value.getCouponNeedPhone,
+                            submitOrderNeedPhone: form.value.submitOrderNeedPhone,
+                            loginNeedPhone: form.value.loginNeedPhone,
+                            openWxCard: form.value.openWxCard };
             saveSetting(param).then(response => {
-              this.$modal.msgSuccess("保存成功");
-              this.getSettingInfo();
+              modal.msgSuccess("保存成功");
+              getSettingInfo();
             });
         }
       });
-    },
-    // 设置会员卡
-    setMemberCard: function() {
-      this.openMemberCard = true;
-    },
-    // 关闭对话框
-    closeDialog() {
-      this.openMemberCard = false;
-    }
-  }
-};
+    
+}
+
+function setMemberCard() {
+
+      openMemberCard.value = true;
+    
+}
+
+function closeDialog() {
+
+      openMemberCard.value = false;
+    
+}
 </script>

@@ -1,5 +1,5 @@
 <template>
-    <el-dialog class="common-dialog" title="支付结果" :visible="showDialog" @close="submit" width="580px" destroy-on-close>
+    <el-dialog class="common-dialog" title="支付结果" :model-value="showDialog" @close="submit" width="580px" destroy-on-close>
           <el-row>
             <el-col :span="24">
               <div class="main">
@@ -23,10 +23,13 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
-export default {
-    props: {
-      showDialog: {
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'payResultDialog' })
+
+const props = defineProps({
+showDialog: {
         type:[Boolean],
         default:()=>false
       },
@@ -34,21 +37,26 @@ export default {
         type:[Object],
         default:()=>{}
       }
-    },
-    data(){
-      return {
-        loading: false,
-      }
-    },
-    methods: {
-       submit() {
-         this.$emit('closeDialog','payResultDialog');
-       },
-       printOrder(orderId) {
-         this.$emit('closeDialog','payResultDialog');
-         this.$emit('showOrderPrint', orderId);
-       }
-    }
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loading: false,
+})
+const { loading } = toRefs(state)
+
+function submit() {
+
+         emit('closeDialog','payResultDialog');
+       
+}
+
+function printOrder(orderId) {
+
+         emit('closeDialog','payResultDialog');
+         emit('showOrderPrint', orderId);
+       
 }
 </script>
 <style lang="scss" scoped>

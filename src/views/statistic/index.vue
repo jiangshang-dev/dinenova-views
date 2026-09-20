@@ -147,96 +147,89 @@
   </div>
 </template>
 
-<script>
-import { getNumDayTime } from "@/utils/fuint";
-import { getStatisticData } from "@/api/home";
-import { getMainData, getTopData } from "@/api/statistic";
-import commonChart from '../components/charts/index';
-export default {
-  name: "Statistic",
-  components: {
-    commonChart
-  },
-  data() {
-    return {
-       loading: false,
-       startTime: getNumDayTime(30),
-       endTime: getNumDayTime(0),
-       mainData: { userCount: 0, totalUserCount: 0, orderCount: 0, totalOrderCount: 0, payAmount: 0, totalPayAmount: 0, activeUserCount: 0, totalPayUserCount: 0 },
-       chart1: { title: '近七日订单数量', color: '#ff5b57', chartType: 'bar', header: ['订单统计'] },
-       chart2: { title: '近七日会员活跃数', color: '#113a28', chartType: 'line', header: ['会员统计'] },
-       chartData1: [],
-       chartData2: [],
-       goodsList: [],
-       memberList: []
-    };
-  },
-  created() {
-    this.getMainData();
-    this.getChartsData();
-    this.getTopData();
-  },
-  methods: {
-    // 重置
-    reset() {
-       this.startTime = "";
-       this.endTime = "";
-    },
-    // 设置日期
-    setDay(day) {
-      this.startTime = getNumDayTime(day - 1);
-      this.endTime = getNumDayTime(0);
-      this.getMainData();
-      this.getTopData();
-    },
-    // 查询首页数据
-    getMainData() {
-      this.loading = true;
-      const param = { startTime: this.startTime, endTime: this.endTime }
-      getMainData(param).then(response => {
-          this.mainData = response.data;
-          this.loading = false
-        }
-      );
-    },
-    // 查询统计数据
-    getChartsData() {
-      const app = this;
-      app.loading = true;
-      // 近7日订单数量和活跃会员数量
-      getStatisticData({ tag : 'order,user_active' }).then(response => {
-          const data = response.data;
-          const labelData1 = data.data[0] ? data.data[0] : [];
-          const labelData2 = data.data[1] ? data.data[1] : [];
-          const dataList1 = [];
-          const dataList2 = [];
+<script setup>
+import { ref, reactive } from 'vue'
+import { getNumDayTime } from '@/utils/fuint'
+import { getStatisticData } from '@/api/home'
+import { getMainData as fetchMainData, getTopData as fetchTopData } from '@/api/statistic'
+import commonChart from '../components/charts/index'
 
-          data.labels.forEach(function(label, index) {
-             const value1 = labelData1[index] ? labelData1[index] : 0;
-             const value2 = labelData2[index] ? labelData2[index] : 0;
-             dataList1.push( { name: label, value0: value1 } );
-             dataList2.push( { name: label, value0: value2 } );
-          })
-          app.chartData1 = dataList1;
-          app.chartData2 = dataList2;
-          app.loading = false;
-        }
-      )
-    },
-    // 查询排行榜数据
-    getTopData() {
-      const app = this;
-      app.loading = true;
-      const param = { startTime: this.startTime, endTime: this.endTime }
-      getTopData(param).then(response => {
-           app.loading = false;
-           app.goodsList = response.data.goodsList;
-           app.memberList = response.data.memberList;
-         }
-      );
-    }
-  }
-};
+defineOptions({ name: 'Statistic' })
+
+const loading = ref(false)
+const startTime = ref(getNumDayTime(30))
+const endTime = ref(getNumDayTime(0))
+const mainData = reactive({
+  userCount: 0,
+  totalUserCount: 0,
+  orderCount: 0,
+  totalOrderCount: 0,
+  payAmount: 0,
+  totalPayAmount: 0,
+  activeUserCount: 0,
+  totalPayUserCount: 0
+})
+const chart1 = { title: '近七日订单数量', color: '#ff5b57', chartType: 'bar', header: ['订单统计'] }
+const chart2 = { title: '近七日会员活跃数', color: '#113a28', chartType: 'line', header: ['会员统计'] }
+const chartData1 = ref([])
+const chartData2 = ref([])
+const goodsList = ref([])
+const memberList = ref([])
+
+function reset() {
+  startTime.value = ''
+  endTime.value = ''
+}
+
+function setDay(day) {
+  startTime.value = getNumDayTime(day - 1)
+  endTime.value = getNumDayTime(0)
+  getMainData()
+  getTopData()
+}
+
+function getMainData() {
+  loading.value = true
+  const param = { startTime: startTime.value, endTime: endTime.value }
+  fetchMainData(param).then(response => {
+    Object.assign(mainData, response.data)
+    loading.value = false
+  })
+}
+
+function getChartsData() {
+  loading.value = true
+  getStatisticData({ tag: 'order,user_active' }).then(response => {
+    const data = response.data
+    const labelData1 = data.data[0] ? data.data[0] : []
+    const labelData2 = data.data[1] ? data.data[1] : []
+    const dataList1 = []
+    const dataList2 = []
+    data.labels.forEach(function (label, index) {
+      const value1 = labelData1[index] ? labelData1[index] : 0
+      const value2 = labelData2[index] ? labelData2[index] : 0
+      dataList1.push({ name: label, value0: value1 })
+      dataList2.push({ name: label, value0: value2 })
+    })
+    chartData1.value = dataList1
+    chartData2.value = dataList2
+    loading.value = false
+  })
+}
+
+function getTopData() {
+  loading.value = true
+  const param = { startTime: startTime.value, endTime: endTime.value }
+  fetchTopData(param).then(response => {
+    loading.value = false
+    goodsList.value = response.data.goodsList
+    memberList.value = response.data.memberList
+  })
+}
+
+getMainData()
+getChartsData()
+getTopData()
 </script>
 
 <style scoped lang="scss">

@@ -4,18 +4,12 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'FuintDoc',
-  data() {
-    return {
-      url: 'https://www.fuint.cn/docs/index/'
-    }
-  },
-  methods: {
-    goto() {
-      window.open(this.url)
-    }
-  }
+<script setup>
+defineOptions({ name: 'FuintDoc' })
+
+const url = 'https://www.fuint.cn/docs/index/'
+
+function goto() {
+  window.open(url)
 }
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <el-form ref="form" :model="user" :rules="rules" label-width="80px">
+  <el-form ref="formRef" :model="user" :rules="rules" label-width="80px">
     <el-form-item label="用户昵称" prop="nickName">
       <el-input v-model="user.nickName" maxlength="30" />
     </el-form-item>
@@ -22,18 +22,22 @@
   </el-form>
 </template>
 
-<script>
+<script setup>
+import tab from '@/plugins/tab'
 import { updateAccountProfile } from "@/api/system/account";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  props: {
-    user: {
+defineOptions({ name: 'userInfo' })
+
+const props = defineProps({
+user: {
       type: Object
     }
-  },
-  data() {
-    return {
-      // 表单校验
+})
+
+const state = reactive({
+// 表单校验
       rules: {
         nickName: [
           { required: true, message: "用户昵称不能为空", trigger: "blur" }
@@ -55,21 +59,24 @@ export default {
           }
         ]
       }
-    };
-  },
-  methods: {
-    submit() {
-      this.$refs["form"].validate(valid => {
+})
+const { rules } = toRefs(state)
+
+function submit() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          updateUserProfile(this.user).then(response => {
-            this.$modal.msgSuccess("修改成功");
+          updateUserProfile(props.user).then(response => {
+            modal.msgSuccess("修改成功");
           });
         }
       });
-    },
-    close() {
-      this.$tab.closePage();
-    }
-  }
-};
+    
+}
+
+function close() {
+
+      tab.closePage();
+    
+}
 </script>

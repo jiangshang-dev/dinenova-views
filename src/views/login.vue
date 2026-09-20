@@ -1,168 +1,175 @@
 <template>
   <div class="login">
-      <div class="login-main">
-        <div class="caption">
-            <h4 class="caption-title">{{ systemName }}</h4>
-            <p class="caption-remark">欢迎使用 {{ systemName }}，您的卡券、储值卡、计次卡等会员营销小管家！</p>
+    <div class="login-main">
+      <div class="caption">
+        <h4 class="caption-title">{{ systemName }}</h4>
+        <p class="caption-remark">欢迎使用 {{ systemName }}，您的卡券、储值卡、计次卡等会员营销小管家！</p>
+      </div>
+    </div>
+    <div class="login-form">
+      <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules">
+        <div class="title">
+          <img class="logo" src="@/assets/logo/logo.png" />
+          <span class="name">{{ systemName }}</span>
         </div>
-      </div>
-      <div class="login-form">
-         <el-form ref="loginForm" :model="loginForm" :rules="loginRules">
-          <div class="title">
-            <img class="logo" src="@/assets/logo/logo.png" />
-            <span class="name">{{ systemName }}</span>
+        <el-form-item prop="username">
+          <el-input
+            v-model="loginForm.username"
+            type="text"
+            autocomplete="off"
+            clearable
+            placeholder="账号"
+          >
+            <template #prefix>
+              <svg-icon icon-class="user" class="el-input__icon input-icon" />
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item prop="password">
+          <el-input
+            v-model="loginForm.password"
+            type="password"
+            autocomplete="off"
+            placeholder="密码"
+            clearable
+            @keyup.enter="handleLogin"
+          >
+            <template #prefix>
+              <svg-icon icon-class="password" class="el-input__icon input-icon" />
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item v-if="captchaOnOff" prop="captchaCode">
+          <el-input
+            v-model="loginForm.captchaCode"
+            autocomplete="off"
+            placeholder="请输入验证码"
+            style="width: 63%"
+            clearable
+            @keyup.enter="handleLogin"
+          >
+            <template #prefix>
+              <svg-icon icon-class="validCode" class="el-input__icon input-icon" />
+            </template>
+          </el-input>
+          <div class="login-code">
+            <img :src="codeUrl" class="login-code-img" @click="getCode" />
           </div>
-          <el-form-item prop="username">
-            <el-input
-              v-model="loginForm.username"
-              type="text"
-              auto-complete="off"
-              clearable
-              placeholder="账号">
-              <template #prefix><svg-icon icon-class="user" class="el-input__icon input-icon" /></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="password">
-            <el-input
-              v-model="loginForm.password"
-              type="password"
-              auto-complete="off"
-              placeholder="密码"
-              clearable
-              @keyup.enter="handleLogin">
-              <template #prefix><svg-icon icon-class="password" class="el-input__icon input-icon" /></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="captchaCode" v-if="captchaOnOff">
-            <el-input
-              v-model="loginForm.captchaCode"
-              auto-complete="off"
-              placeholder="请输入验证码"
-              style="width: 63%"
-              clearable
-              @keyup.enter="handleLogin">
-              <template #prefix><svg-icon icon-class="validCode" class="el-input__icon input-icon" /></template>
-            </el-input>
-            <div class="login-code">
-              <img :src="codeUrl" @click="getCode" class="login-code-img" />
-            </div>
-          </el-form-item>
-          <el-checkbox v-model="loginForm.rememberMe" style="margin:0px 0px 25px 0px;">记住密码</el-checkbox>
-          <el-form-item style="width:100%;">
-            <el-button
-              :loading="loading"
-              size="default"
-              type="primary"
-              style="width:100%;line-height: 24px;font-size: 16px;"
-              @click.prevent="handleLogin">
-              <span v-if="!loading">立即登录</span>
-              <span v-else>登 录 中...</span>
-            </el-button>
-          </el-form-item>
-         </el-form>
-         <div class="copy-right">
-           <span>Copyright © 2022-2024 <a class="link" href="https://www.fuint.cn">fuint.cn</a> All Rights Reserved.</span>
-          </div>
+        </el-form-item>
+        <el-checkbox v-model="loginForm.rememberMe" style="margin:0px 0px 25px 0px;">记住密码</el-checkbox>
+        <el-form-item style="width:100%;">
+          <el-button
+            :loading="loading"
+            size="default"
+            type="primary"
+            style="width:100%;line-height: 24px;font-size: 16px;"
+            @click.prevent="handleLogin"
+          >
+            <span v-if="!loading">立即登录</span>
+            <span v-else>登 录 中...</span>
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <div class="copy-right">
+        <span>Copyright © 2022-2024 <a class="link" href="https://www.fuint.cn">fuint.cn</a> All Rights Reserved.</span>
       </div>
+    </div>
   </div>
 </template>
 
-<script>
-import { getCodeImg } from "@/api/login";
-import Cookies from "js-cookie";
+<script setup>
+import { reactive, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import Cookies from 'js-cookie'
+import { getCodeImg } from '@/api/login'
 import { encrypt, decrypt } from '@/utils/jsencrypt'
 
-export default {
-  name: "Login",
-  data() {
-    return {
-      codeUrl: "",
-      systemName : import.meta.env.VUE_APP_TITLE,
-      loginForm: {
-        username: "fuint",
-        password: "123456",
-        rememberMe: false,
-        captchaCode: "",
-        uuid: ""
-      },
-      loginRules: {
-        username: [
-          { required: true, trigger: "blur", message: "请输入您的账号" }
-        ],
-        password: [
-          { required: true, trigger: "blur", message: "请输入您的密码" }
-        ],
-        captchaCode: [{ required: true, trigger: "change", message: "请输入验证码" }, { min: 4, max: 6, message: '请输入验证码', trigger: 'blur' }]
-      },
-      loading: false,
-      // 验证码开关
-      captchaOnOff: true,
-      // 注册开关
-      register: false,
-      redirect: undefined
-    };
-  },
-  watch: {
-    $route: {
-      handler: function(route) {
-        this.redirect = route.query && route.query.redirect;
-      },
-      immediate: true
-    }
-  },
-  created() {
-    this.getCode();
-    this.getCookie();
-  },
-  methods: {
-    getCode() {
-      const app = this
-      getCodeImg().then(response => {
-        app.codeUrl = response.data.captcha
-        app.loginForm.uuid = response.data.uuid
-      })
-    },
-    getCookie() {
-      const username = Cookies.get("username");
-      const password = Cookies.get("password");
-      const rememberMe = Cookies.get('rememberMe')
-      this.loginForm = {
-        username: username === undefined ? this.loginForm.username : username,
-        password: password === undefined ? this.loginForm.password : decrypt(password),
-        rememberMe: rememberMe === undefined ? false : Boolean(rememberMe),
-        uuid: this.loginForm.uuid
-      };
-    },
-    handleLogin() {
-      const app = this;
-      if (app.loading) {
-          return false;
-      }
-      this.$refs.loginForm.validate(valid => {
-        if (valid) {
-            app.loading = true;
-            if (app.loginForm.rememberMe) {
-                Cookies.set("username", this.loginForm.username, { expires: 30 });
-                Cookies.set("password", encrypt(this.loginForm.password), { expires: 30 });
-                Cookies.set('rememberMe', this.loginForm.rememberMe, { expires: 30 });
-            } else {
-                Cookies.remove("username");
-                Cookies.remove("password");
-                Cookies.remove('rememberMe');
-            }
-            app.$store.dispatch("Login", this.loginForm).then(() => {
-            app.$router.push({ path: this.redirect || "/" }).catch(()=>{});
-          }).catch(() => {
-              app.loading = false;
-              if (app.captchaOnOff) {
-                  app.getCode();
-              }
-          });
-        }
-      });
-    }
+defineOptions({ name: 'Login' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+
+const loginFormRef = ref(null)
+const codeUrl = ref('')
+const systemName = import.meta.env.VUE_APP_TITLE
+const loading = ref(false)
+const captchaOnOff = ref(true)
+const redirect = ref(undefined)
+
+const loginForm = reactive({
+  username: 'fuint',
+  password: '123456',
+  rememberMe: false,
+  captchaCode: '',
+  uuid: ''
+})
+
+const loginRules = {
+  username: [{ required: true, trigger: 'blur', message: '请输入您的账号' }],
+  password: [{ required: true, trigger: 'blur', message: '请输入您的密码' }],
+  captchaCode: [
+    { required: true, trigger: 'change', message: '请输入验证码' },
+    { min: 4, max: 6, message: '请输入验证码', trigger: 'blur' }
+  ]
+}
+
+function getCode() {
+  getCodeImg().then(response => {
+    codeUrl.value = response.data.captcha
+    loginForm.uuid = response.data.uuid
+  })
+}
+
+function getCookie() {
+  const username = Cookies.get('username')
+  const password = Cookies.get('password')
+  const rememberMe = Cookies.get('rememberMe')
+  loginForm.username = username === undefined ? loginForm.username : username
+  loginForm.password = password === undefined ? loginForm.password : decrypt(password)
+  loginForm.rememberMe = rememberMe === undefined ? false : Boolean(rememberMe)
+}
+
+function handleLogin() {
+  if (loading.value) {
+    return
   }
-};
+  loginFormRef.value.validate(valid => {
+    if (!valid) {
+      return
+    }
+    loading.value = true
+    if (loginForm.rememberMe) {
+      Cookies.set('username', loginForm.username, { expires: 30 })
+      Cookies.set('password', encrypt(loginForm.password), { expires: 30 })
+      Cookies.set('rememberMe', loginForm.rememberMe, { expires: 30 })
+    } else {
+      Cookies.remove('username')
+      Cookies.remove('password')
+      Cookies.remove('rememberMe')
+    }
+    store.dispatch('Login', loginForm).then(() => {
+      router.push({ path: redirect.value || '/' }).catch(() => {})
+    }).catch(() => {
+      loading.value = false
+      if (captchaOnOff.value) {
+        getCode()
+      }
+    })
+  })
+}
+
+watch(
+  () => route.query.redirect,
+  (val) => {
+    redirect.value = val
+  },
+  { immediate: true }
+)
+
+getCode()
+getCookie()
 </script>
 
 <style rel="stylesheet/scss" lang="scss">

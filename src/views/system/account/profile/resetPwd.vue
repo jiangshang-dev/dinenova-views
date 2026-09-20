@@ -1,5 +1,5 @@
 <template>
-  <el-form ref="form" :model="user" :rules="rules" label-width="80px">
+  <el-form ref="formRef" :model="user" :rules="rules" label-width="80px">
     <el-form-item label="旧密码" prop="oldPassword">
       <el-input v-model="user.oldPassword" placeholder="请输入旧密码" type="password" show-password />
     </el-form-item>
@@ -16,20 +16,16 @@
   </el-form>
 </template>
 
-<script>
+<script setup>
+import tab from '@/plugins/tab'
 import { updateAccountPwd } from "@/api/system/account";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
 
-export default {
-  data() {
-    const equalToPassword = (rule, value, callback) => {
-      if (this.user.newPassword !== value) {
-        callback(new Error("两次输入的密码不一致"));
-      } else {
-        callback();
-      }
-    };
-    return {
-      user: {
+defineOptions({ name: 'resetPwd' })
+
+const state = reactive({
+user: {
         oldPassword: undefined,
         newPassword: undefined,
         confirmPassword: undefined
@@ -48,21 +44,24 @@ export default {
           { required: true, validator: equalToPassword, trigger: "blur" }
         ]
       }
-    };
-  },
-  methods: {
-    submit() {
-      this.$refs["form"].validate(valid => {
+})
+const { user, rules } = toRefs(state)
+
+function submit() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          updateUserPwd(this.user.oldPassword, this.user.newPassword).then(response => {
-            this.$modal.msgSuccess("修改成功");
+          updateUserPwd(user.value.oldPassword, user.value.newPassword).then(response => {
+            modal.msgSuccess("修改成功");
           });
         }
       });
-    },
-    close() {
-      this.$tab.closePage();
-    }
-  }
-};
+    
+}
+
+function close() {
+
+      tab.closePage();
+    
+}
 </script>

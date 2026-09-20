@@ -217,7 +217,7 @@
 
     <!-- 修改对话框 start-->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="订单号" prop="orderSn">
@@ -274,7 +274,7 @@
 
     <!-- 核销对话框 start-->
     <el-dialog title="核销订单" v-model="openVerify" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="vForm" :model="vForm" :rules="vFormRules" label-width="120px">
+      <el-form ref="vFormRef" :model="vForm" :rules="vFormRules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="订单号" prop="orderSn">
@@ -306,7 +306,7 @@
 
     <!-- 发货对话框 start-->
     <el-dialog title="填写物流信息" v-model="openExpress" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="eForm" :model="eForm" :rules="eFormRules" label-width="120px">
+      <el-form ref="eFormRef" :model="eForm" :rules="eFormRules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="订单号" prop="orderSn">
@@ -342,7 +342,7 @@
 
     <!-- 退款对话框 start -->
     <el-dialog title="订单退款" v-model="openRefundDialog" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="rForm" :model="rForm" :rules="rFormRules" label-width="120px">
+      <el-form ref="rFormRef" :model="rForm" :rules="rFormRules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="订单号" prop="orderSn" style="width:450px;">
@@ -389,67 +389,80 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { useRouter, useRoute } from 'vue-router'
+
+import modal from '@/plugins/modal'
+
 import { getName } from "@/utils/fuint";
 import { getOrderList, updateOrderStatus, getOrderInfo, saveOrder, deleteOrder, verifyOrder, delivered } from "@/api/order";
 import { doRefund } from "@/api/refund";
 import orderPrintDialog from '../cashier/components/orderPrintDialog'
-export default {
-  name: "OrderIndex",
-  components: {
-    orderPrintDialog
-  },
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 店铺列表
-      storeList: [],
-      // 所属店铺
-      storeIds: [],
-      // 订单类型
-      typeList: [],
-      // 订单状态列表
-      statusList: [],
-      // 订单支付状态列表
-      payStatusList: [],
-      // 配送类型列表
-      orderModeList: [],
-      // 支付类型
-      payTypeList: [],
-      // 是否显示弹出层
-      open: false,
-      // 是否显示核销对话框
-      openVerify: false,
-      // 是否显示发货对话框
-      openExpress: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 打印订单对话框
-      openOrderPrintDialog: false,
-      // 退款对话框
-      openRefundDialog: false,
-      storeInfo: {},
-      orderInfo: {},
-      // 表单参数
-      form: { orderId: "", orderSn: 0, amount: "", orderMode: "oneself", discount: "", remark: "", status: "A" },
-      vForm: { orderId: "", orderSn: "", remark: "", verifyCode: "" },
-      eForm: { orderId: "", orderSn: "", expressCompany: "", expressNo: "" },
-      rForm: { orderId: "", orderSn: "", payType: '', payAmount: "", refundAmount: "", remark: ""},
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'OrderIndex' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const loading = ref(true)
+
+const title = ref("")
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const dateRange = ref([])
+
+const showSearch = ref(true)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const storeList = reactive([])
+
+const storeIds = reactive([])
+
+const typeList = reactive([])
+
+const statusList = reactive([])
+
+const payStatusList = reactive([])
+
+const orderModeList = reactive([])
+
+const payTypeList = reactive([])
+
+const open = ref(false)
+
+const openVerify = ref(false)
+
+const openExpress = ref(false)
+
+const defaultSort = reactive({prop: 'createTime', order: 'descending'})
+
+const openOrderPrintDialog = ref(false)
+
+const openRefundDialog = ref(false)
+
+const storeInfo = reactive({})
+
+const orderInfo = reactive({})
+
+const form = reactive({ orderId: "", orderSn: 0, amount: "", orderMode: "oneself", discount: "", remark: "", status: "A" })
+
+const vForm = reactive({ orderId: "", orderSn: "", remark: "", verifyCode: "" })
+
+const eForm = reactive({ orderId: "", orderSn: "", expressCompany: "", expressNo: "" })
+
+const rForm = reactive({ orderId: "", orderSn: "", payType: '', payAmount: "", refundAmount: "", remark: ""})
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         userId: '',
@@ -460,100 +473,108 @@ export default {
         orderSn: '',
         storeIds: '',
         tableCode: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         amount: [
           { required: true, message: "总金额不能为空", trigger: "blur" },
         ]
-      },
-      // 核销表单校验
-      vFormRules: {
+      })
+
+const vFormRules = reactive({
         verifyCode: [
           { required: true, message: "核销码不能为空", trigger: "blur" },
         ]
-      },
-      eFormRules: {
+      })
+
+const eFormRules = reactive({
         expressCompany: [
           { required: true, message: "物流公司不能为空", trigger: "blur" },
         ],
         expressNo: [
           { required: true, message: "物流单号不能为空", trigger: "blur" },
         ]
-      },
-      rFormRules: {
+      })
+
+const rFormRules = reactive({
         refundAmount: [
           { required: true, message: "退款金额不能为空", trigger: "blur" },
           { pattern: /((^[1-9]\d*)|^0)(\.\d{0,2}){0,1}$/, message: `请输入正确的退款金额`, trigger: 'blur' }
         ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询订单
-    getList() {
-      const app = this;
-      app.loading = true;
-      app.queryParams.storeIds = app.storeIds ? app.storeIds.join(",") : '';
-      getOrderList(app.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.typeList = response.data.typeList;
-          this.statusList = response.data.statusList;
-          this.payStatusList = response.data.payStatusList;
-          this.orderModeList = response.data.orderModeList;
-          this.payTypeList = response.data.payTypeList;
-          this.storeList = response.data.storeList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+const vFormRef = ref(null)
+
+const eFormRef = ref(null)
+
+const rFormRef = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      
+      loading.value = true;
+      queryParams.storeIds = storeIds ? storeIds.join(",") : '';
+      getOrderList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          typeList.length = 0; typeList.push(...(response.data.typeList || []));
+          statusList.length = 0; statusList.push(...(response.data.statusList || []));
+          payStatusList.length = 0; payStatusList.push(...(response.data.payStatusList || []));
+          orderModeList.length = 0; orderModeList.push(...(response.data.orderModeList || []));
+          payTypeList.length = 0; payTypeList.push(...(response.data.payTypeList || []));
+          storeList.length = 0; storeList.push(...(response.data.storeList || []));
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.queryParams.status = '';
-      this.queryParams.mobile = '';
-      this.queryParams.orderMode = '';
-      this.queryParams.orderSn = '';
-      this.queryParams.storeIds = '';
-      this.storeIds = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      dateRange.value = [];
+      queryParams.status = '';
+      queryParams.mobile = '';
+      queryParams.orderMode = '';
+      queryParams.orderSn = '';
+      queryParams.storeIds = '';
+      storeIds.length = 0;
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.orderSn + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.orderSn + '"吗？').then(function() {
         return updateOrderStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function reset() {
+      Object.assign(form, {
         orderId: "",
         orderSn: "",
         status: "A",
@@ -561,214 +582,214 @@ export default {
         discount: "",
         remark: "",
         orderMode: "oneself",
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 取消核销按钮
-    cancelVForm() {
-      this.openVerify = false;
-      this.vForm.orderId = '';
-      this.vForm.orderSn = '';
-      this.vForm.verifyCode = '';
-    },
-    // 提交核销按钮
-    submitVForm: function() {
-      this.$refs["vForm"].validate(valid => {
+      });
+      formRef.value?.resetFields();
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function cancelVForm() {
+      openVerify.value = false;
+      vForm.orderId = '';
+      vForm.orderSn = '';
+      vForm.verifyCode = '';
+    }
+
+function submitVForm() {
+      vFormRef.value.validate(valid => {
         if (valid) {
-            verifyOrder(this.vForm).then(response => {
-              this.$modal.msgSuccess("核销成功！");
-              this.cancelVForm();
-              this.getList();
+            verifyOrder(vForm).then(response => {
+              modal.msgSuccess("核销成功！");
+              cancelVForm();
+              getList();
             });
         }
       });
-    },
-    // 提交修改按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-            saveOrder(this.form).then(response => {
-               this.$modal.msgSuccess("修改成功！");
-               this.open = false;
-               this.getList();
+            saveOrder(form).then(response => {
+               modal.msgSuccess("修改成功！");
+               open.value = false;
+               getList();
             }).catch(function() {
-               this.$modal.msgError("修改出错啦");
+               modal.msgError("修改出错啦");
             });
         }
       });
-    },
-    // 查看详情按钮操作
-    handleView(row) {
-      this.$router.push( { path: '/order/detail?orderId=' + row.id } )
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      const app = this;
-      app.reset();
-      const id = row.id || this.ids;
+    }
+
+function handleView(row) {
+      router.push('/order/detail?orderId=' + row.id)
+    }
+
+function handleUpdate(row) {
+      
+      reset();
+      const id = row.id || ids;
       getOrderInfo(id).then(response => {
         let orderInfo = response.data.orderInfo;
         if (orderInfo) {
-            app.form.orderId = orderInfo.id;
-            app.form.orderSn = orderInfo.orderSn;
-            app.form.amount = orderInfo.amount;
-            app.form.discount = orderInfo.discount;
-            app.form.remark = orderInfo.remark;
-            app.form.status = orderInfo.status;
-            app.form.orderMode = orderInfo.orderMode+"";
+            form.orderId = orderInfo.id;
+            form.orderSn = orderInfo.orderSn;
+            form.amount = orderInfo.amount;
+            form.discount = orderInfo.discount;
+            form.remark = orderInfo.remark;
+            form.status = orderInfo.status;
+            form.orderMode = orderInfo.orderMode+"";
         }
-        this.open = true;
-        this.title = "修改订单";
+        open.value = true;
+        title.value = "修改订单";
       });
-    },
-    // 核销按钮操作
-    handleVerify(row) {
-      const app = this;
-      const id = row.id || this.ids;
+    }
+
+function handleVerify(row) {
+      
+      const id = row.id || ids;
       getOrderInfo(id).then(response => {
         let orderInfo = response.data.orderInfo;
         if (orderInfo) {
-            app.vForm.orderId = orderInfo.id;
-            app.vForm.orderSn = orderInfo.orderSn;
-            app.vForm.remark = orderInfo.remark;
+            vForm.orderId = orderInfo.id;
+            vForm.orderSn = orderInfo.orderSn;
+            vForm.remark = orderInfo.remark;
         }
-        app.openVerify = true;
+        openVerify.value = true;
       });
-    },
-    // 发货按钮
-    handleExpress(row) {
-      const app = this;
-      const id = row.id || this.ids;
+    }
+
+function handleExpress(row) {
+      
+      const id = row.id || ids;
       getOrderInfo(id).then(response => {
         let orderInfo = response.data.orderInfo;
         if (orderInfo) {
-            app.eForm.orderId = orderInfo.id;
-            app.eForm.orderSn = orderInfo.orderSn;
-            app.eForm.expressNo = orderInfo.expressInfo ? orderInfo.expressInfo.expressNo : "";
-            app.eForm.expressCompany = orderInfo.expressInfo? orderInfo.expressInfo.expressCompany : "";
+            eForm.orderId = orderInfo.id;
+            eForm.orderSn = orderInfo.orderSn;
+            eForm.expressNo = orderInfo.expressInfo ? orderInfo.expressInfo.expressNo : "";
+            eForm.expressCompany = orderInfo.expressInfo? orderInfo.expressInfo.expressCompany : "";
         }
-        app.openExpress = true;
+        openExpress.value = true;
       });
-    },
-    // 取消发货按钮
-    cancelEForm() {
-      this.openExpress = false;
-      this.eForm.orderId = '';
-      this.eForm.orderSn = '';
-      this.eForm.expressCompany = '';
-      this.eForm.expressNo = '';
-    },
-    // 提交发货按钮
-    submitEForm: function() {
-      const app = this;
-      if (app.loading) {
-          app.$modal.msgError("请求处理中...");
+    }
+
+function cancelEForm() {
+      openExpress.value = false;
+      eForm.orderId = '';
+      eForm.orderSn = '';
+      eForm.expressCompany = '';
+      eForm.expressNo = '';
+    }
+
+function submitEForm() {
+      
+      if (loading.value) {
+          modal.msgError("请求处理中...");
       }
       app.$refs["eForm"].validate(valid => {
         if (valid) {
-          app.loading = true;
-          delivered(this.eForm).then(response => {
-              app.$modal.msgSuccess("提交物流信息成功！");
-              app.cancelEForm();
-              app.getList();
-              app.loading = false;
+          loading.value = true;
+          delivered(eForm).then(response => {
+              modal.msgSuccess("提交物流信息成功！");
+              cancelEForm();
+              getList();
+              loading.value = false;
           });
         }
       });
-    },
-    // 取消退款按钮
-    cancelRForm() {
-      this.openRefundDialog = false;
-      this.rForm.orderId = '';
-      this.rForm.orderSn = '';
-      this.rForm.payAmount = '';
-      this.rForm.payType = '';
-      this.rForm.refundAmount = '';
-      this.rForm.remark = '';
-    },
-    // 提交退款按钮
-    submitRForm: function() {
-      const app = this;
-      if (app.loading) {
-          app.$modal.msgError("请求处理中...");
+    }
+
+function cancelRForm() {
+      openRefundDialog.value = false;
+      rForm.orderId = '';
+      rForm.orderSn = '';
+      rForm.payAmount = '';
+      rForm.payType = '';
+      rForm.refundAmount = '';
+      rForm.remark = '';
+    }
+
+function submitRForm() {
+      
+      if (loading.value) {
+          modal.msgError("请求处理中...");
       }
-      if (parseFloat(app.rForm.refundAmount) > parseFloat(app.rForm.amount)) {
-          app.$modal.msgError("退款金额不能大于订单总金额！");
+      if (parseFloat(rForm.refundAmount) > parseFloat(rForm.amount)) {
+          modal.msgError("退款金额不能大于订单总金额！");
           return false;
       }
       app.$refs["rForm"].validate(valid => {
         if (valid) {
-            app.loading = true;
-            doRefund(app.rForm).then(response => {
-                app.$modal.msgSuccess("提交退款成功！");
-                app.cancelRForm();
-                app.getList();
-                app.loading = false;
+            loading.value = true;
+            doRefund(rForm).then(response => {
+                modal.msgSuccess("提交退款成功！");
+                cancelRForm();
+                getList();
+                loading.value = false;
             });
         }
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    }
+
+function handleDelete(row) {
       const name = row.orderSn
-      this.$modal.confirm('是否确认删除订单号为"' + name + '"的数据项？').then(function() {
+      modal.confirm('是否确认删除订单号为"' + name + '"的数据项？').then(function() {
         return deleteOrder(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    // 打印小票
-    handlePrint(row) {
-      const app = this;
-      app.orderInfo = {};
-      app.storeInfo = {};
-      const id = row.id || this.ids;
+    }
+
+function handlePrint(row) {
+      
+      Object.assign(orderInfo, {});
+      Object.assign(storeInfo, {});
+      const id = row.id || ids;
       getOrderInfo(id).then(response => {
         let orderInfo = response.data.orderInfo;
         if (orderInfo) {
-            app.orderInfo = orderInfo;
-            app.storeInfo = orderInfo.storeInfo;
+            Object.assign(orderInfo, orderInfo);
+            Object.assign(storeInfo, orderInfo.storeInfo);
         }
-        app.openOrderPrintDialog = true;
+        openOrderPrintDialog.value = true;
       });
-    },
-    // 退款
-    handleRefund(row) {
-      const app = this;
-      app.rForm.orderId = row.id;
-      app.rForm.orderSn = row.orderSn;
-      app.rForm.payAmount = row.payAmount;
-      app.rForm.payType = getName(app.payTypeList, row.payType);
-      app.openRefundDialog = true;
-    },
-    // 关掉打印对话框
-    closePrintDialog() {
-      this.openOrderPrintDialog = false;
-    },
-    // 更多操作触发
-    handleCommand(command, row) {
+    }
+
+function handleRefund(row) {
+      
+      rForm.orderId = row.id;
+      rForm.orderSn = row.orderSn;
+      rForm.payAmount = row.payAmount;
+      rForm.payType = getName(payTypeList, row.payType);
+      openRefundDialog.value = true;
+    }
+
+function closePrintDialog() {
+      openOrderPrintDialog.value = false;
+    }
+
+function handleCommand(command, row) {
       switch (command) {
         case "handleDelete":
-          this.handleDelete(row);
+          handleDelete(row);
           break;
         case "handlePrint":
-          this.handlePrint(row);
+          handlePrint(row);
           break;
         case "handleRefund":
-          this.handleRefund(row);
+          handleRefund(row);
           break;
         default:
-          this.handleView(row);
+          handleView(row);
           break;
       }
-    },
-  }
-};
+    }
+
+getList();
 </script>
 

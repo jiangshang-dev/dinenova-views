@@ -55,24 +55,32 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import defaultImg from "@/assets/img/default.png";
-export default {
-  data() {
-    return {
-      defaultImg,
-    };
-  },
-  props: ["item", "index", "selectedIndex"],
-  methods: {
-    onEditer(index) {
-      this.$emit("onEditer", index);
-    },
-    onDeleleItem(index) {
-      this.$emit("onDeleleItem", index);
-    },
-  },
-};
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'adNav' })
+
+const props = defineProps(['item', 'index', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+const state = reactive({
+defaultImg,
+})
+const {  } = toRefs(state)
+
+function onEditer(index) {
+
+      emit("onEditer", index);
+    
+}
+
+function onDeleleItem(index) {
+
+      emit("onDeleleItem", index);
+    
+}
 </script>
 
 <style scoped lang="scss">

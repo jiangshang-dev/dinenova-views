@@ -1,65 +1,59 @@
-<script>
+<script setup>
 import Theme from "./components/theme.vue";
 import Home from "./components/home.vue";
 import { searchStore } from "@/api/store";
-export default {
-  name: "FitmentPage",
-  data() {
-    return {
-      active: 0,
-      menuList: [
-        {
-          name: "首页装修",
-        },
-        {
-          name: "点餐页装修",
-        },
-      ],
-      // 店铺列表
-      storeList: [],
-      //选择的店铺ID
-      form: {
-        id: "", //店铺ID
-      },
-    };
-  },
-  components: {
-    Theme,
-    Home,
-  },
-  created() {
-    this.getStoreList();
-  },
-  methods: {
-    // 获取店铺列表
-    getStoreList() {
-      searchStore().then((response) => {
-        if (response.code === 200 && response.data) {
-          this.storeList = response.data.storeList;
-          if (this.storeList.length > 0 && !this.form.id) {
-            this.form.id = this.storeList[0].id;
-          }
-        }
-      });
+import { ref, reactive, onMounted, toRefs } from 'vue'
+
+defineOptions({ name: 'FitmentPage' })
+
+const homeRef = ref(null)
+const themeRef = ref(null)
+
+const state = reactive({
+  active: 0,
+  menuList: [
+    {
+      name: "首页装修",
     },
-    //切换菜单
-    choseMenu(index) {
-      if (index == this.active) {
-        return;
+    {
+      name: "点餐页装修",
+    },
+  ],
+  // 店铺列表
+  storeList: [],
+  //选择的店铺ID
+  form: {
+    id: "", //店铺ID
+  },
+})
+const { active, menuList, storeList, form } = toRefs(state)
+
+function getStoreList() {
+  searchStore().then((response) => {
+    if (response.code === 200 && response.data) {
+      storeList.value = response.data.storeList;
+      if (storeList.value.length > 0 && !form.value.id) {
+        form.value.id = storeList.value[0].id;
       }
-      this.active = index;
-    },
-    //选择店铺
-    selectChange(id) {
-      
-      // this.$nextTick(()=>{
-      //   console.log(this.$refs);
-      // }) 
-      this.$refs.homeRef.getData("1", id);
-      this.$refs.themeRef.getTemplate(id);
-    },
-  },
-};
+    }
+  });
+}
+
+function choseMenu(index) {
+  if (index == active.value) {
+    return;
+  }
+  active.value = index;
+}
+
+function selectChange(id) {
+  homeRef.value?.getData("1", id);
+  themeRef.value?.getTemplate(id);
+}
+
+onMounted(() => {
+  getStoreList()
+})
 </script>
 
 <template>
@@ -91,7 +85,7 @@ export default {
               </el-form>
             </div>
           </div>
-          <div class="links" v-for="(item, index) in menuList">
+          <div class="links" v-for="(item, index) in menuList" :key="index">
             <a
               :class="active === index ? 'active' : ''"
               @click="choseMenu(index)"

@@ -44,21 +44,26 @@
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {};
-  },
-  props: ["item", "index", "selectedIndex"],
-  methods: {
-    onEditer(index) {
-      this.$emit("onEditer", index);
-    },
-    onDeleleItem(index) {
-      this.$emit("onDeleleItem", index);
-    },
-  },
-};
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'NavBar' })
+
+const props = defineProps(['item', 'index', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+function onEditer(index) {
+
+      emit("onEditer", index);
+    
+}
+
+function onDeleleItem(index) {
+
+      emit("onDeleleItem", index);
+    
+}
 </script>
 
 <style lang="scss" scoped>

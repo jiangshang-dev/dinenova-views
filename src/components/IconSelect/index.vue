@@ -13,32 +13,41 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import icons from './requireIcons'
-export default {
-  name: 'IconSelect',
-  data() {
-    return {
-      name: '',
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'IconSelect' })
+
+const emit = defineEmits([])
+
+const state = reactive({
+name: '',
       iconList: icons
-    }
-  },
-  methods: {
-    filterIcons() {
-      this.iconList = icons
-      if (this.name) {
-        this.iconList = this.iconList.filter(item => item.includes(this.name))
+})
+const { name, iconList } = toRefs(state)
+
+function filterIcons() {
+
+      iconList.value = icons
+      if (name.value) {
+        iconList.value = iconList.value.filter(item => item.includes(name.value))
       }
-    },
-    selectedIcon(name) {
-      this.$emit('selected', name)
+    
+}
+
+function selectedIcon(name) {
+
+      emit('selected', name)
       document.body.click()
-    },
-    reset() {
-      this.name = ''
-      this.iconList = icons
-    }
-  }
+    
+}
+
+function reset() {
+
+      name.value = ''
+      iconList.value = icons
+    
 }
 </script>
 

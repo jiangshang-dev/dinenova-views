@@ -1,16 +1,17 @@
 <template>
-  <div :class="className" :style="{height:height,width:width}" />
+  <div ref="chartEl" :class="className" :style="{height:height,width:width}" />
 </template>
 
-<script>
+<script setup>
 import * as echarts from 'echarts'
 import 'echarts/theme/macarons'
-import resize from './mixins/resize'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useChartResize } from './composables/useChartResize'
 
-export default {
-  mixins: [resize],
-  props: {
-    className: {
+defineOptions({ name: 'LineChart' })
+
+const props = defineProps({
+className: {
       type: String,
       default: 'chart'
     },
@@ -30,39 +31,22 @@ export default {
       type: Object,
       required: true
     }
-  },
-  data() {
-    return {
-      chart: null
-    }
-  },
-  watch: {
-    chartData: {
-      deep: true,
-      handler(val) {
-        this.setOptions(val)
-      }
-    }
-  },
-  mounted() {
-    this.$nextTick(() => {
-      this.initChart()
-    })
-  },
-  beforeUnmount() {
-    if (!this.chart) {
-      return
-    }
-    this.chart.dispose()
-    this.chart = null
-  },
-  methods: {
-    initChart() {
-      this.chart = echarts.init(this.$el, 'macarons')
-      this.setOptions(this.chartData)
-    },
-    setOptions({ expectedData, actualData } = {}) {
-      this.chart.setOption({
+})
+
+const chartEl = ref(null)
+let chart = null
+useChartResize(() => chart)
+
+function initChart() {
+
+      chart = echarts.init(chartEl.value, 'macarons')
+      setOptions(props.chartData)
+    
+}
+
+function setOptions({ expectedData, actualData } = {}) {
+
+      chart.setOption({
         xAxis: {
           data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
           boundaryGap: false,
@@ -129,7 +113,20 @@ export default {
           animationEasing: 'quadraticOut'
         }]
       })
-    }
-  }
+    
 }
+
+watch(() => props.chartData, (val) => { setOptions(val) }, { deep: true })
+
+onMounted(() => {
+  nextTick(() => {
+    initChart()
+  })
+})
+
+onBeforeUnmount(() => {
+  if (!chart) return
+  chart.dispose()
+  chart = null
+})
 </script>

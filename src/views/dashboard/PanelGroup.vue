@@ -55,18 +55,15 @@
   </el-row>
 </template>
 
-<script>
+<script setup>
 import CountTo from 'vue3-count-to'
 
-export default {
-  components: {
-    CountTo
-  },
-  methods: {
-    handleSetLineChartData(type) {
-      this.$emit('handleSetLineChartData', type)
-    }
-  }
+defineOptions({ name: 'PanelGroup' })
+
+const emit = defineEmits(['handleSetLineChartData'])
+
+function handleSetLineChartData(type) {
+  emit('handleSetLineChartData', type)
 }
 </script>
 

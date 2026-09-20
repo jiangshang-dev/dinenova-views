@@ -25,7 +25,7 @@
           placeholder="所属店铺"
           clearable
           style="width: 180px">
-          <el-option :key="0" label="公共所有" v-if="!this.$store.getters.storeId" :value="0" />
+          <el-option :key="0" label="公共所有" v-if="!storeId" :value="0" />
           <el-option v-for="storeInfo in storeOptions" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
         </el-select>
       </el-form-item>
@@ -108,7 +108,7 @@
       @pagination="getList" />
     <!--编辑商品库存-->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="80%" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="所属店铺" prop="storeId">
@@ -185,206 +185,187 @@
   </div>
 </template>
 
-<script>
-import { getStockList, saveStock, deleteStock, getStockInfo } from "@/api/stock";
-import selectGoodsDialog from './selectGoodsDialog';
-export default {
-  name: "StockIndex",
-  components: {
-    selectGoodsDialog
-  },
-  data() {
-    return {
-      isView: false,
-      openSelectGoodsDialog: false,
-      storeId: this.$store.getters.storeId,
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 图片根目录
-      imagePath: "",
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      goodsList: [],
-      // 店铺列表
-      storeOptions: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'sort', order: 'descending'},
-      // 表单参数
-      form: { storeId: this.$store.getters.storeId, type: 'increase', id: '', description: '', status: "A", goodsList: [] },
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        description: '',
-        type: ''
-      },
-      // 表单校验
-      rules: {}
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询分类列表
-    getList() {
-      this.loading = true;
-      getStockList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.imagePath = response.data.imagePath;
-          this.storeOptions = response.data.storeList;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
-        return deleteStock(row.id, row.status);
-      }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
-      }).catch(function() {
-        row.status = row.status === "N" ? "A" : "N";
-      });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增入库按钮操作
-    handleAdd() {
-      this.reset();
-      this.isView = false;
-      this.open = true;
-      this.form.type = 'increase';
-      this.title = "新增入库";
-    },
-    // 新增出库按钮操作
-    handleReduce() {
-      this.reset();
-      this.isView = false;
-      this.open = true;
-      this.form.type = 'reduce';
-      this.title = "新增出库";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        storeId: 0,
-        status: "A",
-        description: "",
-        goodsList: []
-      };
-      this.goodsList = [];
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 选择商品
-    selectGoods() {
-      this.openSelectGoodsDialog = true;
-    },
-    closeSelectGoods() {
-       this.openSelectGoodsDialog = false;
-    },
-    doSelectGoods(selectData) {
-      const app = this;
-      app.openSelectGoodsDialog = false;
-      app.goodsList = selectData;
-      app.goodsList.forEach(function(goods, key) {
-         if (!goods.num) {
-             app.$set(app.goodsList[key], 'num', 1);
-         }
-      })
-    },
-    // 删除商品操作
-    deleteGoods(row) {
-      const dataList = [];
-      this.goodsList.forEach(function(item) {
-         if (item.id != row.id || item.skuId != row.skuId) {
-             dataList.push(item);
-         }
-      })
-      this.goodsList = dataList;
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-            if (!this.goodsList || this.goodsList.length < 1) {
-                this.$modal.alert("请先添加商品");
-                return false;
-            }
-            this.form.goodsList = this.goodsList;
-            saveStock(this.form).then(response => {
-               this.$modal.msgSuccess("新增成功");
-               this.open = false;
-               this.getList();
-               this.reset();
-            });
-        }
-      });
-    },
-    // 详情按钮操作
-    handleDetail(row) {
-       this.reset();
-       this.isView = true;
-       const id = row.id;
-        getStockInfo(id).then(response => {
-            this.form = response.data.stockInfo;
-            this.goodsList = response.data.goodsList;
-            this.open = true;
-            this.title = "记录详情";
-        });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const name = row.id
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
-         return deleteStock(row.id, 'D');
-      }).then(() => {
-         this.getList();
-         this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+<script setup>
+import { ref, reactive } from 'vue'
+import { useStore } from 'vuex'
+import { parseTime, getName } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getStockList, saveStock, deleteStock, getStockInfo } from '@/api/stock'
+import selectGoodsDialog from './selectGoodsDialog.vue'
+
+defineOptions({ name: 'StockIndex' })
+
+const vuexStore = useStore()
+const storeId = vuexStore.getters.storeId
+
+const isView = ref(false)
+const openSelectGoodsDialog = ref(false)
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const imagePath = ref('')
+const total = ref(0)
+const list = ref([])
+const goodsList = ref([])
+const storeOptions = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'sort', order: 'descending' }
+const form = reactive({
+  storeId: vuexStore.getters.storeId,
+  type: 'increase',
+  id: '',
+  description: '',
+  status: 'A',
+  goodsList: []
+})
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  description: '',
+  type: ''
+})
+const rules = {}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getStockList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    imagePath.value = response.data.imagePath
+    storeOptions.value = response.data.storeList
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  isView.value = false
+  open.value = true
+  form.type = 'increase'
+  title.value = '新增入库'
+}
+
+function handleReduce() {
+  reset()
+  isView.value = false
+  open.value = true
+  form.type = 'reduce'
+  title.value = '新增出库'
+}
+
+function reset() {
+  Object.assign(form, {
+    id: '',
+    storeId: 0,
+    status: 'A',
+    description: '',
+    goodsList: []
+  })
+  goodsList.value = []
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function selectGoods() {
+  openSelectGoodsDialog.value = true
+}
+
+function closeSelectGoods() {
+  openSelectGoodsDialog.value = false
+}
+
+function doSelectGoods(selectData) {
+  openSelectGoodsDialog.value = false
+  goodsList.value = selectData
+  goodsList.value.forEach(function (goods, key) {
+    if (!goods.num) {
+      goodsList.value[key].num = 1
     }
-  }
-};
+  })
+}
+
+function deleteGoods(row) {
+  const dataList = []
+  goodsList.value.forEach(function (item) {
+    if (item.id != row.id || item.skuId != row.skuId) {
+      dataList.push(item)
+    }
+  })
+  goodsList.value = dataList
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      if (!goodsList.value || goodsList.value.length < 1) {
+        modal.alert('请先添加商品')
+        return false
+      }
+      form.goodsList = goodsList.value
+      saveStock(form).then(() => {
+        modal.msgSuccess('新增成功')
+        open.value = false
+        getList()
+        reset()
+      })
+    }
+  })
+}
+
+function handleDetail(row) {
+  reset()
+  isView.value = true
+  const id = row.id
+  getStockInfo(id).then(response => {
+    Object.assign(form, response.data.stockInfo)
+    goodsList.value = response.data.goodsList
+    open.value = true
+    title.value = '记录详情'
+  })
+}
+
+function handleDelete(row) {
+  const name = row.id
+  modal.confirm('是否确认删除"' + name + '"的数据项？').then(function () {
+    return deleteStock(row.id, 'D')
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>
 <style lang="scss" scoped>
 .common-dialog :deep(.el-upload--picture-card) {

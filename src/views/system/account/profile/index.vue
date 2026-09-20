@@ -58,34 +58,30 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import userAvatar from "./userAvatar";
 import userInfo from "./userInfo";
 import resetPwd from "./resetPwd";
 import { getAccountProfile } from "@/api/system/account";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
 
-export default {
-  name: "Profile",
-  components: { userAvatar, userInfo, resetPwd },
-  data() {
-    return {
-      user: {},
+defineOptions({ name: 'Profile' })
+
+const state = reactive({
+user: {},
       roleGroup: {},
       postGroup: {},
       activeTab: "userinfo"
-    };
-  },
-  created() {
-    this.getUser();
-  },
-  methods: {
-    getUser() {
+})
+const { user, roleGroup, postGroup, activeTab } = toRefs(state)
+
+function getUser() {
+
       getUserProfile().then(response => {
-        this.user = response.data;
-        this.roleGroup = response.roleGroup;
-        this.postGroup = response.postGroup;
+        user.value = response.data;
+        roleGroup.value = response.roleGroup;
+        postGroup.value = response.postGroup;
       });
-    }
-  }
-};
+    
+}
 </script>

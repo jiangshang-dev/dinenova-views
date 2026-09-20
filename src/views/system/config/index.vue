@@ -137,7 +137,7 @@
 
     <!-- 添加或修改参数配置对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="参数名称" prop="configName">
           <el-input v-model="form.configName" placeholder="请输入参数名称" />
         </el-form-item>
@@ -167,164 +167,142 @@
   </div>
 </template>
 
-<script>
-import { listConfig, getConfig, delConfig, addConfig, updateConfig, refreshCache } from "@/api/system/config";
+<script setup>
+import { ref, reactive } from 'vue'
+import modal from '@/plugins/modal'
+import { addDateRange, parseTime } from '@/utils/fuint'
+import { download } from '@/utils/request'
+import { useDict } from '@/composables/useDict'
+import { listConfig, getConfig, delConfig, addConfig, updateConfig, refreshCache } from '@/api/system/config'
 
-export default {
-  name: "Config",
-  dicts: ['sys_yes_no'],
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非单个禁用
-      single: true,
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 参数表格数据
-      configList: [],
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
-      // 日期范围
-      dateRange: [],
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        configName: undefined,
-        configKey: undefined,
-        configType: undefined
-      },
-      // 表单参数
-      form: {},
-      // 表单校验
-      rules: {
-        configName: [
-          { required: true, message: "参数名称不能为空", trigger: "blur" }
-        ],
-        configKey: [
-          { required: true, message: "参数键名不能为空", trigger: "blur" }
-        ],
-        configValue: [
-          { required: true, message: "参数键值不能为空", trigger: "blur" }
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    /** 查询参数列表 */
-    getList() {
-      this.loading = true;
-      listConfig(this.addDateRange(this.queryParams, this.dateRange)).then(response => {
-          this.configList = response.rows;
-          this.total = response.total;
-          this.loading = false;
-        }
-      );
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        configId: undefined,
-        configName: undefined,
-        configKey: undefined,
-        configValue: undefined,
-        configType: "Y",
-        remark: undefined
-      };
-      this.resetForm("form");
-    },
-    /** 搜索按钮操作 */
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    /** 重置按钮操作 */
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    /** 新增按钮操作 */
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "添加参数";
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.configId)
-      this.single = selection.length!=1
-      this.multiple = !selection.length
-    },
-    /** 修改按钮操作 */
-    handleUpdate(row) {
-      this.reset();
-      const configId = row.configId || this.ids
-      getConfig(configId).then(response => {
-        this.form = response.data;
-        this.open = true;
-        this.title = "修改参数";
-      });
-    },
-    /** 提交按钮 */
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.configId != undefined) {
-            updateConfig(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-          } else {
-            addConfig(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
-            });
-          }
-        }
-      });
-    },
-    /** 删除按钮操作 */
-    handleDelete(row) {
-      const configIds = row.configId || this.ids;
-      this.$modal.confirm('是否确认删除参数编号为"' + configIds + '"的数据项？').then(function() {
-          return delConfig(configIds);
-        }).then(() => {
-          this.getList();
-          this.$modal.msgSuccess("删除成功");
-        }).catch(() => {});
-    },
-    /** 导出按钮操作 */
-    handleExport() {
-      this.download('system/config/export', {
-        ...this.queryParams
-      }, `config_${new Date().getTime()}.xlsx`)
-    },
-    /** 刷新缓存按钮操作 */
-    handleRefreshCache() {
-      refreshCache().then(() => {
-        this.$modal.msgSuccess("刷新成功");
-      });
-    }
+defineOptions({ name: 'Config' })
+
+const dict = useDict('sys_yes_no')
+
+const loading = ref(true)
+const ids = ref([])
+const single = ref(true)
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const configList = ref([])
+const title = ref('')
+const open = ref(false)
+const dateRange = ref([])
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  configName: undefined,
+  configKey: undefined,
+  configType: undefined
+})
+const form = ref({})
+const rules = reactive({
+  configName: [{ required: true, message: '参数名称不能为空', trigger: 'blur' }],
+  configKey: [{ required: true, message: '参数键名不能为空', trigger: 'blur' }],
+  configValue: [{ required: true, message: '参数键值不能为空', trigger: 'blur' }]
+})
+const queryForm = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  listConfig(addDateRange(queryParams, dateRange.value)).then((response) => {
+    configList.value = response.rows
+    total.value = response.total
+    loading.value = false
+  })
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function reset() {
+  form.value = {
+    configId: undefined,
+    configName: undefined,
+    configKey: undefined,
+    configValue: undefined,
+    configType: 'Y',
+    remark: undefined
   }
-};
+  formRef.value?.resetFields()
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  dateRange.value = []
+  queryForm.value?.resetFields()
+  handleQuery()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '添加参数'
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map((item) => item.configId)
+  single.value = selection.length != 1
+  multiple.value = !selection.length
+}
+
+function handleUpdate(row) {
+  reset()
+  const configId = row.configId || ids.value
+  getConfig(configId).then((response) => {
+    form.value = response.data
+    open.value = true
+    title.value = '修改参数'
+  })
+}
+
+function submitForm() {
+  formRef.value?.validate((valid) => {
+    if (valid) {
+      if (form.value.configId != undefined) {
+        updateConfig(form.value).then(() => {
+          modal.msgSuccess('修改成功')
+          open.value = false
+          getList()
+        })
+      } else {
+        addConfig(form.value).then(() => {
+          modal.msgSuccess('新增成功')
+          open.value = false
+          getList()
+        })
+      }
+    }
+  })
+}
+
+function handleDelete(row) {
+  const configIds = row.configId || ids.value
+  modal.confirm('是否确认删除参数编号为"' + configIds + '"的数据项？').then(function () {
+    return delConfig(configIds)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+function handleExport() {
+  download('system/config/export', { ...queryParams }, `config_${new Date().getTime()}.xlsx`)
+}
+
+function handleRefreshCache() {
+  refreshCache().then(() => {
+    modal.msgSuccess('刷新成功')
+  })
+}
+
+getList()
 </script>

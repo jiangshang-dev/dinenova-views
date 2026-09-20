@@ -127,7 +127,7 @@
 
     <!-- 审核对话框 start-->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="订单号" prop="orderSn">
@@ -181,141 +181,117 @@
   </div>
 </template>
 
-<script>
-import { getRefundList, getRefundInfo, saveRefund } from "@/api/refund";
-import {parseTime} from "../../utils/fuint";
-export default {
-  name: "RefundIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 状态列表
-      statusList: [],
-      // 售后类型列表
-      refundTypeList: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', refundId: '', remark: '', status: "A", createTime: ''},
-      // 订单详情
-      orderInfo: {},
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        orderSn: '',
-        status: '',
-        startTime: '',
-        endTime: ''
-      },
-      // 表单校验
-      rules: {
-        status: [
-          { required: true, message: "请选择状态", trigger: "blur" },
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询售后订单列表
-    getList() {
-      this.loading = true;
-      getRefundList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.statusList = response.data.statusList;
-          this.refundTypeList = response.data.refundTypeList;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id);
-      this.multiple = !selection.length;
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        refundId: "",
-        status: "A",
-        remark: "",
-        createTime: ""
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-            saveRefund(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-        }
-      });
-    },
-    // 审核按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getRefundInfo(id).then(response => {
-        this.form = response.data.refundInfo;
-        this.form.refundId = this.form.id;
-        this.form.createTime = parseTime(this.form.createTime);
-        this.orderInfo = response.data.orderInfo;
-        this.open = true;
-        this.title = "审核售后订单";
-      });
-    },
-    // 查看详情按钮操作
-    handleView(row) {
-      this.$router.push( { path: '/order/detail?orderId=' + row.orderId } )
-    },
-  }
-};
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { getName, parseTime } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getRefundList, getRefundInfo, saveRefund } from '@/api/refund'
+
+defineOptions({ name: 'RefundIndex' })
+
+const router = useRouter()
+
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const statusList = ref([])
+const refundTypeList = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const form = reactive({ id: '', refundId: '', remark: '', status: 'A', createTime: '' })
+const orderInfo = ref({})
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  orderSn: '',
+  status: '',
+  startTime: '',
+  endTime: ''
+})
+const rules = {
+  status: [{ required: true, message: '请选择状态', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getRefundList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    statusList.value = response.data.statusList
+    refundTypeList.value = response.data.refundTypeList
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function reset() {
+  Object.assign(form, { id: '', refundId: '', status: 'A', remark: '', createTime: '' })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveRefund(form).then(() => {
+        modal.msgSuccess('修改成功')
+        open.value = false
+        getList()
+      })
+    }
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getRefundInfo(id).then(response => {
+    Object.assign(form, response.data.refundInfo)
+    form.refundId = form.id
+    form.createTime = parseTime(form.createTime)
+    orderInfo.value = response.data.orderInfo
+    open.value = true
+    title.value = '审核售后订单'
+  })
+}
+
+function handleView(row) {
+  router.push('/order/detail?orderId=' + row.orderId)
+}
+
+getList()
 </script>
 

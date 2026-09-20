@@ -57,14 +57,16 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { createQrCodeNew, uploadQrBackground, deleteQrBackground } from "@/api/common";
 import axios from 'axios';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
 
-export default {
-  name: "FuintQrCode",
-  props: {
-    showDialog: {
+defineOptions({ name: 'FuintQrCode' })
+
+const props = defineProps({
+showDialog: {
       type: [Boolean],
       default: () => false,
     },
@@ -72,84 +74,87 @@ export default {
       type: [Object],
       default: () => {},
     },
-  },
-  watch: {
-    showDialog(value) {
-      if (value) {
-        this.storeId = 0;
-        this.styles = [];
-        this.confirm();
-      }
-    },
-  },
-  data() {
-    return {
-      loadQr: false,
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loadQr: false,
       size: 400,
       isName: false,
       type: 'minAppQrCode',
       styles: [],
       storeId: 0,
-    };
-  },
-  methods: {
-    confirm() {
-      if (!this.showDialog || !this.qr || !this.qr.id) {
+})
+const { loadQr, size, isName, type, styles, storeId } = toRefs(state)
+
+function confirm() {
+
+      if (!props.showDialog || !props.qr || !props.qr.id) {
         return;
       }
-      const app = this;
-      app.loadQr = true;
+      ;
+      loadQr.value = true;
       createQrCodeNew({
-        type: this.qr.type,
-        id: this.qr.id,
-        width: this.size,
-        showName: this.isName ? 1 : 0,
-        appType: this.type === 'minAppQrCode' ? 1 : 2
+        type: props.qr.type,
+        id: props.qr.id,
+        width: size.value,
+        showName: isName.value ? 1 : 0,
+        appType: props.type === 'minAppQrCode' ? 1 : 2
       }).then((response) => {
         const data = response.data || {};
-        app.styles = data.styles || [];
-        app.storeId = data.storeId || 0;
-        app.loadQr = false;
+        styles.value = data.styles || [];
+        storeId.value = data.storeId || 0;
+        loadQr.value = false;
       }).catch(() => {
-        app.loadQr = false;
+        loadQr.value = false;
       });
-    },
-    uploadBackground(option) {
+    
+}
+
+function uploadBackground(option) {
+
       const file = option.file;
       if (!file) {
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
-        this.$message.warning("图片不能超过2MB");
+        ElMessage.warning("图片不能超过2MB");
         return;
       }
       const form = new FormData();
       form.append("file", file);
-      form.append("type", this.qr.type);
-      form.append("id", this.qr.id);
-      this.loadQr = true;
+      form.append("type", props.qr.type);
+      form.append("id", props.qr.id);
+      loadQr.value = true;
       uploadQrBackground(form).then(() => {
-        this.$message.success("背景已保存，本店其他码也可以选用");
-        this.confirm();
+        ElMessage.success("背景已保存，本店其他码也可以选用");
+        confirm();
       }).catch(() => {
-        this.loadQr = false;
+        loadQr.value = false;
       });
-    },
-    removeBackground(item) {
-      this.$confirm("删除后本店将不能再选用这张背景，确定删除吗？", "提示", {
+    
+}
+
+function removeBackground(item) {
+
+      ElMessageBox.confirm("删除后本店将不能再选用这张背景，确定删除吗？", "提示", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         type: "warning"
       }).then(() => {
         deleteQrBackground(item.backgroundId).then(() => {
-          this.$message.success("已删除");
-          this.confirm();
+          ElMessage.success("已删除");
+          confirm();
         });
       }).catch(() => {});
-    },
-    down(item) {
+    
+}
+
+function down(item) {
+
       if (!item || !item.url) {
-        this.$message.warning("请等待图片生成完成");
+        ElMessage.warning("请等待图片生成完成");
         return;
       }
       axios({
@@ -167,12 +172,28 @@ export default {
       }).catch(() => {
         window.open(item.url);
       });
-    },
-    close() {
-      this.$emit("closeDialog");
-    },
-  },
-};
+    
+}
+
+function close() {
+
+      emit("closeDialog");
+    
+}
+
+watch(() => props.showDialog, (value) => {
+      if (value) {
+        storeId.value = 0;
+        styles.value = [];
+        confirm();
+      }
+    })
+
+watch(() => props.if, (value) => {
+        storeId.value = 0;
+        styles.value = [];
+        confirm();
+      })
 </script>
 <style scoped>
 .qr-form {

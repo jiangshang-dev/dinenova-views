@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <div class="main-panel">
-      <el-form ref="form" class="content" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" class="content" :model="form" :rules="rules" label-width="120px">
         <div class="title">充值规则设置</div>
         <el-row v-for="(item, index) in form.rechargeItem" :key="index">
           <el-col :span="24">
@@ -40,76 +40,71 @@
   </div>
 </template>
 
-<script>
-import { getSettingInfo, saveSetting } from "@/api/balance";
+<script setup>
+import { ref, reactive, onActivated } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import modal from '@/plugins/modal'
+import { getSettingInfo, saveSetting } from '@/api/balance'
 
-export default {
-  name: "BalanceSetting",
-  data() {
-    return {
-      // 遮罩层
-      loading: false,
-      // 表单参数
-      form: { rechargeItem: [], remark: '', status: "A" },
-      // 表单校验
-      rules: {
-        rechargeItem: [
-          { required: true, message: "充值项不能为空", trigger: "blur" }
-        ],
-      }
-    };
-  },
-  created() {
-    this.getSettingInfo();
-  },
-  activated() {
-    this.getSettingInfo();
-  },
-  methods: {
-    // 添加充值项
-    addRechargeItem() {
-       this.form.rechargeItem.push({ rechargeAmount: '', giveAmount: '' })
-    },
-    //  删除充值项
-    removeRechargeItem(i) {
-      console.log(i)
-      const rechargeItem = []
-      this.form.rechargeItem.forEach(function(item, index){
-         if (i !== index) {
-           rechargeItem.push(item)
-         }
-      })
-      this.form.rechargeItem = rechargeItem
-    },
-    // 查询账户列表
-    getSettingInfo() {
-      this.loading = true;
-      getSettingInfo(this.queryParams).then(response => {
-          this.form.rechargeItem = response.data.rechargeRuleList;
-          this.form.remark = response.data.remark;
-          this.form.status = response.data.status;
-          this.loading = false;
-        }
-      );
-    },
-    // 取消按钮
-    cancel() {
-      this.$store.dispatch('tagsView/delView', this.$route)
-      this.$router.push( { path: '/balance/list' } );
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-            saveSetting(this.form).then(response => {
-              this.$modal.msgSuccess("保存成功");
-              this.getSettingInfo();
-            });
-        }
-      });
+defineOptions({ name: 'BalanceSetting' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+
+const loading = ref(false)
+const form = reactive({ rechargeItem: [], remark: '', status: 'A' })
+const rules = {
+  rechargeItem: [{ required: true, message: '充值项不能为空', trigger: 'blur' }]
+}
+const formRef = ref(null)
+
+function addRechargeItem() {
+  form.rechargeItem.push({ rechargeAmount: '', giveAmount: '' })
+}
+
+function removeRechargeItem(i) {
+  console.log(i)
+  const rechargeItem = []
+  form.rechargeItem.forEach(function (item, index) {
+    if (i !== index) {
+      rechargeItem.push(item)
     }
-  }
-};
+  })
+  form.rechargeItem = rechargeItem
+}
+
+function getSettingInfoFn() {
+  loading.value = true
+  getSettingInfo(undefined).then(response => {
+    form.rechargeItem = response.data.rechargeRuleList
+    form.remark = response.data.remark
+    form.status = response.data.status
+    loading.value = false
+  })
+}
+
+function cancel() {
+  store.dispatch('tagsView/delView', route)
+  router.push({ path: '/balance/list' })
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveSetting(form).then(() => {
+        modal.msgSuccess('保存成功')
+        getSettingInfoFn()
+      })
+    }
+  })
+}
+
+getSettingInfoFn()
+onActivated(() => {
+  getSettingInfoFn()
+})
 </script>
 <style rel="stylesheet/scss" lang="scss">
 .main-panel {

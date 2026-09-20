@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <div class="main-panel">
-      <el-form ref="form" class="content" :model="form" :rules="rules" label-width="200px">
+      <el-form ref="formRef" class="content" :model="form" :rules="rules" label-width="200px">
         <el-row>
           <el-col :span="12">
             <el-form-item class="recharge-item" prop="isClose" label="关闭系统交易功能">
@@ -37,19 +37,31 @@
   </div>
 </template>
 
-<script>
-import { getSettingInfo, saveSetting } from "@/api/order";
+<script setup>
+import { onActivated, reactive, ref } from 'vue'
 
-export default {
-  name: "OrderSetting",
-  data() {
-    return {
-      // 遮罩层
-      loading: false,
-      // 表单参数
-      form: { deliveryFee: '', isClose: 'false', deliveryMinAmount: '' },
-      // 表单校验
-      rules: {
+import { useRouter, useRoute } from 'vue-router'
+
+import { useStore } from 'vuex'
+
+import modal from '@/plugins/modal'
+
+import { getSettingInfo as fetchSettingInfo, saveSetting } from '@/api/order'
+
+
+defineOptions({ name: 'OrderSetting' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const store = useStore()
+
+const loading = ref(false)
+
+const form = reactive({ deliveryFee: '', isClose: 'false', deliveryMinAmount: '' })
+
+const rules = reactive({
         deliveryFee: [
           { required: true, message: "请输入", trigger: "blur" },
           { min: 0, max: 4, message: `请输入1000以内数字`, trigger: 'blur' }
@@ -61,45 +73,42 @@ export default {
           { required: true, message: "请输入", trigger: "blur" },
           { min: 0, max: 4, message: `请输入1000以内数字，0表示不限制`, trigger: 'blur' }
         ],
-      }
-    };
-  },
-  created() {
-    this.getSettingInfo();
-  },
-  activated() {
-    this.getSettingInfo();
-  },
-  methods: {
-    // 查询账户列表
-    getSettingInfo() {
-      this.loading = true;
-      getSettingInfo(this.queryParams).then(response => {
-          this.form.deliveryFee = response.data.deliveryFee;
-          this.form.isClose = response.data.isClose;
-          this.form.deliveryMinAmount = response.data.deliveryMinAmount;
-          this.loading = false;
+      })
+
+const formRef = ref(null)
+
+function loadSettingInfo() {
+      loading.value = true;
+      fetchSettingInfo().then(response => {
+          form.deliveryFee = response.data.deliveryFee;
+          form.isClose = response.data.isClose;
+          form.deliveryMinAmount = response.data.deliveryMinAmount;
+          loading.value = false;
         }
       );
-    },
-    // 取消按钮
-    cancel() {
-      this.$store.dispatch('tagsView/delView', this.$route)
-      this.$router.push( { path: '/point/list' } );
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    }
+
+function cancel() {
+      store.dispatch('tagsView/delView', route)
+      router.push( { path: '/point/list' } );
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-            saveSetting(this.form).then(response => {
-              this.$modal.msgSuccess("保存成功");
-              this.getSettingInfo();
+            saveSetting(form).then(response => {
+              modal.msgSuccess("保存成功");
+              loadSettingInfo();
             });
         }
       });
     }
-  }
-};
+
+loadSettingInfo();
+
+onActivated(() => {
+loadSettingInfo();
+})
 </script>
 <style rel="stylesheet/scss" lang="scss">
 .main-panel {

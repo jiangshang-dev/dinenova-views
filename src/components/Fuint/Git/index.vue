@@ -4,18 +4,12 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'FuintGit',
-  data() {
-    return {
-      url: 'https://gitee.com/fuint/fuint'
-    }
-  },
-  methods: {
-    goto() {
-      window.open(this.url)
-    }
-  }
+<script setup>
+defineOptions({ name: 'FuintGit' })
+
+const url = 'https://gitee.com/fuint/fuint'
+
+function goto() {
+  window.open(url)
 }
 </script>

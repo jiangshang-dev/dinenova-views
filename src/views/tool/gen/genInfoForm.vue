@@ -207,14 +207,15 @@
   </el-form>
 </template>
 
-<script>
+<script setup>
 import Treeselect from "vue3-treeselect";
 import "vue3-treeselect/dist/vue3-treeselect.css";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
 
-export default {
-  components: { Treeselect },
-  props: {
-    info: {
+defineOptions({ name: 'genInfoForm' })
+
+const props = defineProps({
+info: {
       type: Object,
       default: null
     },
@@ -226,10 +227,10 @@ export default {
       type: Array,
       default: []
     },
-  },
-  data() {
-    return {
-      subColumns: [],
+})
+
+const state = reactive({
+subColumns: [],
       rules: {
         tplCategory: [
           { required: true, message: "请选择生成模板", trigger: "blur" }
@@ -247,17 +248,11 @@ export default {
           { required: true, message: "请输入生成功能名", trigger: "blur" }
         ],
       }
-    };
-  },
-  created() {},
-  watch: {
-    'info.subTableName': function(val) {
-      this.setSubTableColumns(val);
-    }
-  },
-  methods: {
-    /** 转换菜单数据结构 */
-    normalizer(node) {
+})
+const { subColumns, rules } = toRefs(state)
+
+function normalizer(node) {
+
       if (node.children && !node.children.length) {
         delete node.children;
       }
@@ -266,28 +261,37 @@ export default {
         label: node.menuName,
         children: node.children
       };
-    },
-    /** 选择子表名触发 */
-    subSelectChange(value) {
-      this.info.subTableFkName = '';
-    },
-    /** 选择生成模板触发 */
-    tplSelectChange(value) {
+    
+}
+
+function subSelectChange(value) {
+
+      props.info.subTableFkName = '';
+    
+}
+
+function tplSelectChange(value) {
+
       if(value !== 'sub') {
-        this.info.subTableName = '';
-        this.info.subTableFkName = '';
+        props.info.subTableName = '';
+        props.info.subTableFkName = '';
       }
-    },
-    /** 设置关联外键 */
-    setSubTableColumns(value) {
-      for (var item in this.tables) {
-        const name = this.tables[item].tableName;
+    
+}
+
+function setSubTableColumns(value) {
+
+      for (var item in props.tables) {
+        const name = props.tables[item].tableName;
         if (value === name) {
-          this.subColumns = this.tables[item].columns;
+          subColumns.value = props.tables[item].columns;
           break;
         }
       }
-    }
-  }
-};
+    
+}
+
+watch(() => props.function, (val) => {
+      setSubTableColumns(val);
+    })
 </script>

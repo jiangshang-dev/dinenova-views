@@ -1,5 +1,5 @@
 <template>
-    <el-dialog class="common-dialog" title="支付结算" :visible="showDialog" width="1100px" @close="cancel" destroy-on-close>
+    <el-dialog class="common-dialog" title="支付结算" :model-value="showDialog" width="1100px" @close="cancel" destroy-on-close>
         <el-dialog class="common-dialog" width="800px" title="选择卡券" v-model="showCouponDialog" append-to-body destroy-on-close>
           <div class="coupon-list">
             <div class="none" v-if="!memberInfo || !myCouponList || myCouponList.length < 1">暂无可用卡券</div>
@@ -105,10 +105,14 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
-export default {
-    props: {
-      showDialog: {
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'settlementDialog' })
+
+const props = defineProps({
+showDialog: {
         type:[Boolean],
         default:()=>false
       },
@@ -132,48 +136,12 @@ export default {
         type:[String],
         default:()=>''
       }
-    },
-    watch: {
-      showDialog(value) {
-         const app = this;
-         if (value) {
-            if (app.orderInfo.id) {
-                app.totalPrice = app.orderInfo.payAmount;
-            }
-            app.discountAmount = '';
-            app.reduceAmount = '';
-            app.myCouponList = [];
-            app.couponName = '';
-            app.userCouponId = 0;
-            app.remark = app.remarks;
-            app.computerPrice(app.discountAmount, app.reduceAmount);
-            if (app.memberInfo) {
-                for (let i = 0, len = app.couponList.length; i < len; i += 2) {
-                     app.myCouponList.push(app.couponList.slice(i, i + 2));
-                }
-            }
-         }
-      },
-      discountAmount(value) {
-        const reg = /^[0-9](.)*$/;
-        if (value < 0 || value > 10 || !reg.test(value)) {
-            this.discountAmount = '';
-            value = '';
-        }
-        this.computerPrice(value, this.reduceAmount);
-      },
-      reduceAmount(value) {
-         const reg = /^[0-9](.)*$/;
-         if (value > this.totalPrice || value < 0 || !reg.test(value)) {
-             this.reduceAmount = '';
-             value = '';
-         }
-         this.computerPrice(this.discountAmount, value);
-      }
-    },
-    data(){
-      return {
-          loading: false,
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loading: false,
           discountPrice: 0,
           payType: '',
           userCouponId: 0,
@@ -184,94 +152,164 @@ export default {
           newTotalPrice: 0,
           showCouponDialog: false,
           myCouponList: []
-      }
-    },
-    methods: {
-        // 选择支付方式
-        selectPayType(type) {
-          const app = this;
-          if (type == 'BALANCE' && !app.memberInfo) {
-              app.$modal.alert("余额支付需关联会员信息！");
+})
+const { loading, discountPrice, payType, userCouponId, couponName, remark, discountAmount, reduceAmount, newTotalPrice, showCouponDialog, myCouponList } = toRefs(state)
+
+function selectPayType(type) {
+
+          ;
+          if (type == 'BALANCE' && !props.memberInfo) {
+              modal.alert("余额支付需关联会员信息！");
               return false;
           }
-          this.payType = type;
-        },
-        // 选择卡券
-        selectCoupon() {
-          const app = this;
-          if (!app.memberInfo) {
-              app.$modal.alert("请先关联会员信息！");
+          payType.value = type;
+        
+}
+
+function selectCoupon() {
+
+          ;
+          if (!props.memberInfo) {
+              modal.alert("请先关联会员信息！");
               app.$refs.remark.focus();
               return false;
           } else {
-              app.myCouponList = [];
-              app.couponName = '';
-              app.userCouponId = 0;
-              app.computerPrice(app.discountAmount, app.reduceAmount);
-              if (app.memberInfo) {
-                  for (let i = 0, len = app.couponList.length; i < len; i += 2) {
-                       app.myCouponList.push(app.couponList.slice(i, i + 2));
+              myCouponList.value = [];
+              couponName.value = '';
+              userCouponId.value = 0;
+              computerPrice(discountAmount.value, reduceAmount.value);
+              if (props.memberInfo) {
+                  for (let i = 0, len = props.couponList.length; i < len; i += 2) {
+                       myCouponList.value.push(props.couponList.slice(i, i + 2));
                   }
               }
-              app.showCouponDialog = true;
+              showCouponDialog.value = true;
           }
-        },
-        // 使用该卡券
-        useThisCoupon(coupon) {
-          const app = this;
-          app.$modal.confirm('确定使用该卡券吗？').then(function() {
-              app.$emit('useThisCoupon', coupon);
-              app.couponName = coupon.name;
-              app.userCouponId = coupon.userCouponId;
-              app.showCouponDialog = false;
+        
+}
+
+function useThisCoupon(coupon) {
+
+          ;
+          modal.confirm('确定使用该卡券吗？').then(function() {
+              emit('useThisCoupon', coupon);
+              couponName.value = coupon.name;
+              userCouponId.value = coupon.userCouponId;
+              showCouponDialog.value = false;
           }).then(() => {
               // empty
           }).catch(function() {
               // empty
           });
-        },
-        // 提交结算
-        submit() {
-          const app = this;
-          if (app.payType == '') {
-              app.$modal.alert("请先选择支付方式！");
+        
+}
+
+function submit() {
+
+          ;
+          if (payType.value == '') {
+              modal.alert("请先选择支付方式！");
               return false;
           }
-          app.$emit('submit', { payType: this.payType, totalPrice: this.newTotalPrice, remark: this.remark, discountPrice: this.discountPrice, userCouponId: app.userCouponId });
-          app.payType = '';
-        },
-        cancel() {
-           this.$emit('closeDialog','settlementDialog');
-           this.payType = '';
-        },
-        computerPrice(discountAmount, reduceAmount) {
-            if (this.orderInfo.id) {
-                this.totalPrice = this.orderInfo.amount;
+          emit('submit', { payType: payType.value, totalPrice: newTotalPrice.value, remark: remark.value, discountPrice: discountPrice.value, userCouponId: userCouponId.value });
+          payType.value = '';
+        
+}
+
+function cancel() {
+
+           emit('closeDialog','settlementDialog');
+           payType.value = '';
+        
+}
+
+function computerPrice(discountAmount, reduceAmount) {
+
+            if (props.orderInfo.id) {
+                props.totalPrice = props.orderInfo.amount;
             }
             let discountPrice = 0.0;
             if (discountAmount.length > 0) {
-                discountPrice = this.totalPrice - (this.totalPrice * (discountAmount / 10));
+                discountPrice.value = props.totalPrice - (props.totalPrice * (discountAmount / 10));
             }
             if (reduceAmount.length > 0) {
-                discountPrice = discountPrice + parseFloat(reduceAmount);
+                discountPrice.value = discountPrice + parseFloat(reduceAmount);
             }
             if (isNaN(discountPrice)) {
-                this.discountAmount = '';
-                this.reduceAmount = '';
-                discountPrice = 0;
+                discountAmount.value = '';
+                reduceAmount.value = '';
+                discountPrice.value = 0;
             }
-            this.discountPrice = discountPrice;
-            this.newTotalPrice = this.totalPrice - this.discountPrice;
-            if (this.newTotalPrice < 0) {
-                this.newTotalPrice = 0;
+            discountPrice.value = discountPrice;
+            newTotalPrice.value = props.totalPrice - discountPrice.value;
+            if (newTotalPrice.value < 0) {
+                newTotalPrice.value = 0;
             }
-        },
-        // 关联会员
-        bindToMember() {
-           this.$emit('switchMember');
-        }
-    }
+        
 }
+
+function bindToMember() {
+
+           emit('switchMember');
+        
+}
+
+watch(() => props.showDialog, (value) => {
+         ;
+         if (value) {
+            if (props.orderInfo.id) {
+                props.totalPrice = props.orderInfo.payAmount;
+            }
+            discountAmount.value = '';
+            reduceAmount.value = '';
+            myCouponList.value = [];
+            couponName.value = '';
+            userCouponId.value = 0;
+            remark.value = props.remarks;
+            computerPrice(discountAmount.value, reduceAmount.value);
+            if (props.memberInfo) {
+                for (let i = 0, len = props.couponList.length; i < len; i += 2) {
+                     myCouponList.value.push(props.couponList.slice(i, i + 2));
+                }
+            }
+         }
+      })
+
+watch(() => props.if, (value) => {
+            if (props.orderInfo.id) {
+                props.totalPrice = props.orderInfo.payAmount;
+            }
+            discountAmount.value = '';
+            reduceAmount.value = '';
+            myCouponList.value = [];
+            couponName.value = '';
+            userCouponId.value = 0;
+            remark.value = props.remarks;
+            computerPrice(discountAmount.value, reduceAmount.value);
+            if (props.memberInfo) {
+                for (let i = 0, len = props.couponList.length; i < len; i += 2) {
+                     myCouponList.value.push(props.couponList.slice(i, i + 2));
+                }
+            }
+         })
+
+watch(() => props.discountAmount, (value) => {
+        const reg = /^[0-9](.)*$/;
+        if (value < 0 || value > 10 || !reg.test(value)) {
+            discountAmount.value = '';
+            value = '';
+        }
+        computerPrice(value, reduceAmount.value);
+      })
+
+watch(() => props.reduceAmount, (value) => {
+         const reg = /^[0-9](.)*$/;
+         if (value > props.totalPrice || value < 0 || !reg.test(value)) {
+             reduceAmount.value = '';
+             value = '';
+         }
+         computerPrice(discountAmount.value, value);
+      })
 </script>
 <style lang="scss" scoped>
    .coupon-list {

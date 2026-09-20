@@ -22,10 +22,10 @@
               :headers="uploadHeader"
               :on-success="handleUploadLogoSuccess">
               <img
-                v-if="this.cardForm.logoUrl"
-                :src="imagePath + this.cardForm.logoUrl"
+                v-if="cardForm.logoUrl"
+                :src="imagePath + cardForm.logoUrl"
                 class="list-img" />
-              <i v-if="!this.cardForm.logoUrl" class="el-icon-plus"></i>
+              <i v-if="!cardForm.logoUrl" class="el-icon-plus"></i>
             </el-upload>
           </el-form-item>
         </el-col>
@@ -153,20 +153,25 @@
   </el-dialog>
 </template>
 
-<script>
-import { getMemberSetting, saveSetting } from "@/api/member";
+<script setup>
+import { getMemberSetting as getMemberSettingApi, saveSetting } from "@/api/member";
 import { getToken } from '@/utils/auth';
-export default {
-  name: "memberCard",
-  props: {
-    showDialog:{
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'memberCard' })
+
+const props = defineProps({
+showDialog:{
       type:[Boolean],
       default:()=>false
     }
-  },
-  data() {
-    return {
-      // 遮罩层
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+// 遮罩层
       loading: false,
       memberInfo: { name: '', id: '', point: 0 },
       // 表单参数
@@ -199,61 +204,73 @@ export default {
         prerogative: [{ required: true, message: "会员卡特权说明，限制1024汉字", trigger: "blur" }],
         description: [{ required: true, message: "卡券使用说明，字数上限为1024个汉字", trigger: "blur" }],
       }
-    };
-  },
-  watch: {
-    showDialog(value) {
-      if (value) {
-          this.getMemberSetting();
-      }
-    }
-  },
-  methods: {
-    // 查询会员卡信息
-    getMemberSetting() {
-      this.loading = true;
-      getMemberSetting().then(response => {
+})
+const { loading, memberInfo, cardForm, imagePath, uploadAction, hideUpload, uploadFiles, uploadHeader, rules } = toRefs(state)
+
+function getMemberSetting() {
+
+      loading.value = true;
+      getMemberSettingApi().then(response => {
           if (response.data.wxMemberCard) {
-              this.cardForm = response.data.wxMemberCard;
+              cardForm.value = response.data.wxMemberCard;
           }
-          this.imagePath = response.data.imagePath;
-          this.loading = false;
+          imagePath.value = response.data.imagePath;
+          loading.value = false;
         }
       );
-    },
-    // 取消按钮
-    cancelCardForm() {
-      this.$emit('closeDialog','memberCard');
-    },
-    // 重置表单
-    reset() {
-      this.cardForm = { cardType: 'MEMBER_CARD', brandName: '', backgroundUrl: '', logoUrl: '', title: '', color: '', notice: '', supplyBonus: 'true',
+    
+}
+
+function cancelCardForm() {
+
+      emit('closeDialog','memberCard');
+    
+}
+
+function reset() {
+
+      cardForm.value = { cardType: 'MEMBER_CARD', brandName: '', backgroundUrl: '', logoUrl: '', title: '', color: '', notice: '', supplyBonus: 'true',
         servicePhone: '', customUrlName: '', customUrl: '', customUrlSubTitle: '', canShare: 'true', prerogative: '',
         bonusUrl: '', bonusRules: '', supplyBalance: 'false', balanceUrl: '' };
-    },
-    // 提交按钮
-    submitCardForm: function() {
-      this.$refs["cardForm"].validate(valid => {
+    
+}
+
+function submitCardForm() {
+
+      cardFormRef.value.validate(valid => {
         if (valid) {
-           const jsonStr = JSON.stringify(this.cardForm);
+           const jsonStr = JSON.stringify(cardForm.value);
            saveSetting({ wxMemberCard: jsonStr }).then(response => {
-               this.$alert("设置会员卡成功！");
-               this.$emit('closeDialog','memberCard');
-               this.reset();
+               modal.alert("设置会员卡成功！");
+               emit('closeDialog','memberCard');
+               reset();
             });
         }
       });
-    },
-    // 背景图上传处理
-    handleUploadSuccess(file) {
-      this.cardForm.backgroundUrl = file.data.fileName;
-    },
-    // 商户logo图上传处理
-    handleUploadLogoSuccess(file) {
-      this.cardForm.logoUrl = file.data.fileName;
-    }
-  }
-};
+    
+}
+
+function handleUploadSuccess(file) {
+
+      cardForm.value.backgroundUrl = file.data.fileName;
+    
+}
+
+function handleUploadLogoSuccess(file) {
+
+      cardForm.value.logoUrl = file.data.fileName;
+    
+}
+
+watch(() => props.showDialog, (value) => {
+      if (value) {
+          getMemberSetting();
+      }
+    })
+
+watch(() => props.if, (value) => {
+          getMemberSetting();
+      })
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

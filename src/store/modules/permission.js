@@ -67,6 +67,9 @@ function filterAsyncRouter(asyncRouterMap, lastRouter = false, type = false) {
       } else if (route.component === 'InnerLink') {
         route.component = InnerLink
       } else {
+        if (typeof route.component === 'string' && ['goods/goods/edit', 'goods/goods/add', 'order/detail', 'coupon/confirm/index'].includes(route.component)) {
+          route.meta = Object.assign({}, route.meta || {}, { noCache: true })
+        }
         route.component = loadView(route.component)
       }
     }

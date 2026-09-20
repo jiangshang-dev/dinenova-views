@@ -101,23 +101,20 @@
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {};
-  },
-  props: ["curItem", "selectedIndex"],
-  created() {
-    this.curItem.style.lineHeight = parseInt(this.curItem.style.lineHeight);
-    this.curItem.style.paddingTop = parseInt(this.curItem.style.paddingTop);
-  },
-  methods: {
-    //重置颜色
-    onEditorResetColor(holder, attribute, color) {
-      this.$emit("onEditorResetColor", holder, attribute, color);
-    },
-  },
-};
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'Guide' })
+
+const props = defineProps(['curItem', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+function onEditorResetColor(holder, attribute, color) {
+
+      emit("onEditorResetColor", holder, attribute, color);
+    
+}
 </script>
 
 <style lang="scss" scoped></style>

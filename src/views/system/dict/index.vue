@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
+    <el-form :model="queryParams" ref="queryFormRef" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="字典名称" prop="dictName">
         <el-input
           v-model="queryParams.dictName"
@@ -146,7 +146,7 @@
 
     <!-- 添加或修改参数配置对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="字典名称" prop="dictName">
           <el-input v-model="form.dictName" placeholder="请输入字典名称" />
         </el-form-item>
@@ -173,15 +173,20 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { listType, getType, delType, addType, updateType, refreshCache } from "@/api/system/dict/type";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+import { addDateRange, parseTime } from '@/utils/fuint'
+import { download } from '@/utils/request'
+import { useDict } from '@/composables/useDict'
 
-export default {
-  name: "Dict",
-  dicts: ['sys_normal_disable'],
-  data() {
-    return {
-      // 遮罩层
+defineOptions({ name: 'Dict' })
+
+const dict = useDict('sys_normal_disable')
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 选中数组
       ids: [],
@@ -220,113 +225,133 @@ export default {
           { required: true, message: "字典类型不能为空", trigger: "blur" }
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    /** 查询字典类型列表 */
-    getList() {
-      this.loading = true;
-      listType(this.addDateRange(this.queryParams, this.dateRange)).then(response => {
-          this.typeList = response.rows;
-          this.total = response.total;
-          this.loading = false;
+})
+const { loading, ids, single, multiple, showSearch, total, typeList, title, open, dateRange, queryParams, form, rules } = toRefs(state)
+
+function getList() {
+
+      loading.value = true;
+      listType(addDateRange(queryParams.value, dateRange.value)).then(response => {
+          typeList.value = response.rows;
+          total.value = response.total;
+          loading.value = false;
         }
       );
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function reset() {
+
+      form.value = {
         dictId: undefined,
         dictName: undefined,
         dictType: undefined,
         status: "0",
         remark: undefined
       };
-      this.resetForm("form");
-    },
-    /** 搜索按钮操作 */
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    /** 重置按钮操作 */
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    /** 新增按钮操作 */
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "添加字典类型";
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.dictId)
-      this.single = selection.length!=1
-      this.multiple = !selection.length
-    },
-    /** 修改按钮操作 */
-    handleUpdate(row) {
-      this.reset();
-      const dictId = row.dictId || this.ids
+      formRef.value?.resetFields();
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      dateRange.value = [];
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleAdd() {
+
+      reset();
+      open.value = true;
+      title.value = "添加字典类型";
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.dictId)
+      single.value = selection.length!=1
+      multiple.value = !selection.length
+    
+}
+
+function handleUpdate(row) {
+
+      reset();
+      const dictId = row.dictId || ids.value
       getType(dictId).then(response => {
-        this.form = response.data;
-        this.open = true;
-        this.title = "修改字典类型";
+        form.value = response.data;
+        open.value = true;
+        title.value = "修改字典类型";
       });
-    },
-    /** 提交按钮 */
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.dictId != undefined) {
-            updateType(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
+          if (form.value.dictId != undefined) {
+            updateType(form.value).then(response => {
+              modal.msgSuccess("修改成功");
+              open.value = false;
+              getList();
             });
           } else {
-            addType(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
+            addType(form.value).then(response => {
+              modal.msgSuccess("新增成功");
+              open.value = false;
+              getList();
             });
           }
         }
       });
-    },
-    /** 删除按钮操作 */
-    handleDelete(row) {
-      const dictIds = row.dictId || this.ids;
-      this.$modal.confirm('是否确认删除字典编号为"' + dictIds + '"的数据项？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      const dictIds = row.dictId || ids.value;
+      modal.confirm('是否确认删除字典编号为"' + dictIds + '"的数据项？').then(function() {
         return delType(dictIds);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    /** 导出按钮操作 */
-    handleExport() {
-      this.download('system/dict/type/export', {
-        ...this.queryParams
+    
+}
+
+function handleExport() {
+
+      download('system/dict/type/export', {
+        ...queryParams.value
       }, `type_${new Date().getTime()}.xlsx`)
-    },
-    /** 刷新缓存按钮操作 */
-    handleRefreshCache() {
+    
+}
+
+function handleRefreshCache() {
+
       refreshCache().then(() => {
-        this.$modal.msgSuccess("刷新成功");
+        modal.msgSuccess("刷新成功");
       });
-    }
-  }
-};
+    
+}
+
+getList()
 </script>

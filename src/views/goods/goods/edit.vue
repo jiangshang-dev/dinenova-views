@@ -2,11 +2,12 @@
   <goodsForm :is-edit="true" :is-add="false" />
 </template>
 
-<script>
-import goodsForm from './goodsForm'
+<script setup>
+import { reactive, ref } from 'vue'
 
-export default {
-  name: 'goodsEdit',
-  components: { goodsForm }
-}
+import goodsForm from './goodsForm.vue'
+
+
+defineOptions({ name: 'goodsEdit' })
+
 </script>

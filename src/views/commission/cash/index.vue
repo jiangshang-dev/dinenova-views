@@ -162,109 +162,131 @@
     </el-dialog>
   </div>
 </template>
-<script>
-  import { getCashList, updateCommissionCash } from "@/api/commission/cash";
-  import { searchStore } from "@/api/store";
-  import Detail from "./detail";
-  export default {
-    name: 'cashIndex',
-    components: {
-      Detail
-    },
-    data() {
-      return {
-        page: 1, // 初始页
-        pageSize: 10, // 每页数
-        total: 0,
-        dataList: [],
-        storeOptions: [],
-        statusList: [],
-        realName: '',
-        mobile: '',
-        status: '',
-        storeId: '',
-        startTime: null,
-        endTime: null,
-        openStaffScheme: false,
-        detailDialog: false,
-        openEdit: false,
-        updateForm : { status : "A" },
-      }
-    },
-    created: function () {
-      this.queryList();
-      this.getStoreList();
-    },
-    methods: {
-      queryList() {
+<script setup>
+import { nextTick, reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
+import { getName } from '@/utils/fuint'
+
+import { getCashList, updateCommissionCash } from "@/api/commission/cash";
+import { searchStore } from "@/api/store";
+import Detail from "./detail";
+
+
+defineOptions({ name: 'cashIndex' })
+
+
+const page = ref(1)
+
+const pageSize = ref(10)
+
+const total = ref(0)
+
+const dataList = reactive([])
+
+const storeOptions = reactive([])
+
+const statusList = reactive([])
+
+const realName = ref('')
+
+const mobile = ref('')
+
+const status = ref('')
+
+const storeId = ref('')
+
+const startTime = ref(null)
+
+const endTime = ref(null)
+
+const openStaffScheme = ref(false)
+
+const detailDialog = ref(false)
+
+const openEdit = ref(false)
+
+const updateForm = reactive({ status : "A" })
+
+const formRef = ref(null)
+
+const detailRef = ref(null)
+
+function queryList() {
         let params = {
-          page: this.page,
-          limit: this.pageSize,
-          realName: this.realName,
-          mobile: this.mobile,
-          storeId: this.storeId,
-          status: this.status,
-          startTime: this.startTime,
-          endTime: this.endTime
+          page: page.value,
+          limit: pageSize.value,
+          realName: realName.value,
+          mobile: mobile.value,
+          storeId: storeId.value,
+          status: status.value,
+          startTime: startTime.value,
+          endTime: endTime.value
         }
         getCashList(params).then(response => {
-            this.dataList = response.data.dataList.content;
-            this.total = response.data.dataList.totalElements;
-            this.statusList = response.data.statusList;
+            dataList.length = 0; dataList.push(...(response.data.dataList.content || []));
+            total.value = response.data.dataList.totalElements;
+            statusList.length = 0; statusList.push(...(response.data.statusList || []));
         });
-      },
-      handleDetail(row) {
-        this.detailDialog = true;
-        this.$nextTick(() => {
-          this.$refs.detail.init(row.uuid);
+      }
+
+function handleDetail(row) {
+        detailDialog.value = true;
+        nextTick(() => {
+          detailRef.value.init(row.uuid);
         })
-      },
-      // 修改按钮
-      handleUpdate(row) {
-        this.openEdit = true;
-        this.updateForm = { id: row.id,
+      }
+
+function handleUpdate(row) {
+        openEdit.value = true;
+        Object.assign(updateForm, { id: row.id,)
                             amount: row.amount,
                             status: row.status,
                             description: row.description };
-      },
-      // 确定修改
-      submitUpdate() {
-        updateCommissionCash(this.updateForm).then(response => {
-          this.$modal.msgSuccess("提交成功");
-          this.updateForm = { status: "A" };
-          this.openEdit = false;
-          this.queryList();
+      }
+
+function submitUpdate() {
+        updateCommissionCash(updateForm).then(response => {
+          modal.msgSuccess("提交成功");
+          Object.assign(updateForm, { status: "A" });
+          openEdit.value = false;
+          queryList();
         }).catch(function() {
-          this.$modal.msgError("提交失败");
+          modal.msgError("提交失败");
         });
-      },
-      // 取消修改
-      cancelUpdate() {
-        this.updateForm = { status: "A" };
-        this.openEdit = false;
-      },
-      handleQuery() {
-        this.queryList();
-      },
-      // 重置按钮操作
-      resetQuery() {
-        this.page = 1;
-        this.mobile = '';
-        this.storeId = '';
-        this.status = '';
-        this.realName = '';
-        this.startTime = '';
-        this.endTime = '';
-        this.handleQuery();
-      },
-      // 店铺列表
-      getStoreList() {
+      }
+
+function cancelUpdate() {
+        Object.assign(updateForm, { status: "A" });
+        openEdit.value = false;
+      }
+
+function handleQuery() {
+        queryList();
+      }
+
+function resetQuery() {
+        page.value = 1;
+        mobile.value = '';
+        storeId.value = '';
+        status.value = '';
+        realName.value = '';
+        startTime.value = '';
+        endTime.value = '';
+        handleQuery();
+      }
+
+function getStoreList() {
         searchStore().then(response => {
-            this.storeOptions = response.data.storeList;
+            storeOptions.length = 0; storeOptions.push(...(response.data.storeList || []));
         })
       }
-    }
-  }
+
+queryList();
+getStoreList();
 </script>
 <style scoped>
   .queryInput :deep(.el-input__inner) {

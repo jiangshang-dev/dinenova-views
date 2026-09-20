@@ -113,4 +113,26 @@
     color: #fff;
     font-weight: bold;
   }
+
+  /* 弹窗挂到 body 后，页面 scoped 样式失效，这里按旧后台压成缩略图大小 */
+  .el-upload,
+  .el-upload--picture-card {
+    width: 80px !important;
+    height: 80px !important;
+    line-height: 80px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .el-upload--picture-card img,
+  .el-upload .list-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    border: none;
+    border-radius: 6px;
+    display: block;
+  }
 }

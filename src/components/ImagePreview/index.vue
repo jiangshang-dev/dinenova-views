@@ -10,52 +10,55 @@
   </el-image>
 </template>
 
-<script>
-import { isExternal } from "@/utils/validate";
+<script setup>
+import { computed } from 'vue'
+import { isExternal } from '@/utils/validate'
 
-export default {
-  name: "ImagePreview",
-  props: {
-    src: {
-      type: String,
-      required: true
-    },
-    width: {
-      type: [Number, String],
-      default: ""
-    },
-    height: {
-      type: [Number, String],
-      default: ""
-    }
+defineOptions({ name: 'ImagePreview' })
+
+const props = defineProps({
+  src: {
+    type: String,
+    required: true
   },
-  computed: {
-    realSrc() {
-      let real_src = this.src.split(",")[0];
-      if (isExternal(real_src)) {
-        return real_src;
-      }
-      return import.meta.env.VUE_APP_BASE_API + real_src;
-    },
-    realSrcList() {
-      let real_src_list = this.src.split(",");
-      let srcList = [];
-      real_src_list.forEach(item => {
-        if (isExternal(item)) {
-          return srcList.push(item);
-        }
-        return srcList.push(import.meta.env.VUE_APP_BASE_API + item);
-      });
-      return srcList;
-    },
-    realWidth() {
-      return typeof this.width == "string" ? this.width : `${this.width}px`;
-    },
-    realHeight() {
-      return typeof this.height == "string" ? this.height : `${this.height}px`;
-    }
+  width: {
+    type: [Number, String],
+    default: ''
   },
-};
+  height: {
+    type: [Number, String],
+    default: ''
+  }
+})
+
+const realSrc = computed(() => {
+  const real_src = props.src.split(',')[0]
+  if (isExternal(real_src)) {
+    return real_src
+  }
+  return import.meta.env.VUE_APP_BASE_API + real_src
+})
+
+const realSrcList = computed(() => {
+  const real_src_list = props.src.split(',')
+  const srcList = []
+  real_src_list.forEach((item) => {
+    if (isExternal(item)) {
+      srcList.push(item)
+    } else {
+      srcList.push(import.meta.env.VUE_APP_BASE_API + item)
+    }
+  })
+  return srcList
+})
+
+const realWidth = computed(() => {
+  return typeof props.width == 'string' ? props.width : `${props.width}px`
+})
+
+const realHeight = computed(() => {
+  return typeof props.height == 'string' ? props.height : `${props.height}px`
+})
 </script>
 
 <style lang="scss" scoped>

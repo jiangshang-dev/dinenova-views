@@ -123,89 +123,96 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { parseTime } from '@/utils/fuint'
+
 import { getGiveLogList, getGiveItem } from "@/api/coupon/give";
-export default {
-  name: "GiveIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 弹框开关
-      open: false,
-      // 明细列表
-      itemList: [],
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 卡券类型
-      typeList: [],
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'GiveIndex' })
+
+
+const loading = ref(true)
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const dateRange = ref([])
+
+const showSearch = ref(true)
+
+const open = ref(false)
+
+const itemList = reactive([])
+
+const total = ref(0)
+
+const list = reactive([])
+
+const typeList = reactive([])
+
+const defaultSort = reactive({prop: 'createTime', order: 'descending'})
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         mobile: '',
         userId: '',
         couponId: '',
         status: ''
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getGiveLogList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.typeList = response.data.typeList;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 撤销按钮操作
-    handleDetail(row) {
-      this.loading = true;
-      getGiveItem(row.id).then( response => {
-          this.itemList = response.data.itemList;
-          this.open = true
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getGiveLogList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          typeList.length = 0; typeList.push(...(response.data.typeList || []));
+          loading.value = false;
         }
       );
     }
-  }
-};
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      dateRange.value = [];
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleDetail(row) {
+      loading.value = true;
+      getGiveItem(row.id).then( response => {
+          itemList.length = 0; itemList.push(...(response.data.itemList || []));
+          open.value = true
+          loading.value = false;
+        }
+      );
+    }
+
+getList();
 </script>
 

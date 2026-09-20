@@ -207,7 +207,7 @@
                 v-model="form.storeId"
                 style="width: 300px"
                 placeholder="所属店铺，空则为公共所有">
-                <el-option :key="0" label="公共所有" v-if="!this.$store.getters.storeId" :value="0" />
+                <el-option :key="0" label="公共所有" v-if="!store.getters.storeId" :value="0" />
                 <el-option v-for="storeInfo in storeList" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
               </el-select>
             </el-form-item>
@@ -342,16 +342,25 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getMemberList, updateMemberStatus, getMemberInfo, saveMember, deleteMember, resetMemberPwd } from "@/api/member";
 import balanceRecharge from "./balanceRecharge";
 import pointRecharge from "./pointRecharge";
-export default {
-  name: "MemberIndex",
-  components: { balanceRecharge, pointRecharge },
-  data() {
-    return {
-      // 遮罩层
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+import { addDateRange } from '@/utils/fuint'
+import { ElMessageBox } from 'element-plus'
+import { useStore } from 'vuex'
+
+defineOptions({ name: 'MemberIndex' })
+
+const store = useStore()
+const queryFormRef = ref(null)
+const formRef = ref(null)
+const tablesRef = ref(null)
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 标题
       title: "",
@@ -407,180 +416,214 @@ export default {
         ],
         gradeId: [{ required: true, message: "请选择会员等级", trigger: "blur" }]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      this.queryParams.storeIds = this.storeIds ? this.storeIds.join(",") : '';
-      getMemberList(this.addDateRange(this.queryParams, this.dateRange)).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.userGradeList = response.data.userGradeList;
-          this.storeList = response.data.storeList;
-          this.groupList = response.data.groupList;
-          this.loading = false;
+})
+const { loading, title, ids, multiple, showSearch, total, list, userGradeList, groupList, storeList, storeIds, open, userId, openBalance, openPoint, dateRange, defaultSort, form, queryParams, rules } = toRefs(state)
+
+function getList() {
+
+      loading.value = true;
+      queryParams.value.storeIds = storeIds.value ? storeIds.value.join(",") : '';
+      getMemberList(addDateRange(queryParams.value, dateRange.value)).then( response => {
+          list.value = response.data.paginationResponse.content;
+          total.value = response.data.paginationResponse.totalElements;
+          userGradeList.value = response.data.userGradeList;
+          storeList.value = response.data.storeList;
+          groupList.value = response.data.groupList;
+          loading.value = false;
         }
       );
-    },
-    // 选中会员分组
-    handleGroup(groupInfo) {
+    
+}
+
+function handleGroup(groupInfo) {
+
       if (groupInfo) {
-          this.form.groupId = groupInfo.id;
+          form.value.groupId = groupInfo.id;
       } else {
-          this.form.groupId = '';
+          form.value.groupId = '';
       }
-    },
-    handleQueryGroup(selected) {
+    
+}
+
+function handleQueryGroup(selected) {
+
       let groupIds = [];
       if (selected) {
           selected.forEach(function(item) {
              groupIds.push(item.id);
           })
       }
-      this.queryParams.groupIds = groupIds.toString();
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.queryParams.storeIds = '';
-      this.storeIds = [];
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+      queryParams.value.groupIds = groupIds.toString();
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      dateRange.value = [];
+      queryFormRef.value?.resetFields();
+      queryParams.value.storeIds = '';
+      storeIds.value = [];
+      tablesRef.value.sort(defaultSort.value.prop, defaultSort.value.order);
+      handleQuery();
+    
+}
+
+function handleStatusChange(row) {
+
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
         return updateMemberStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 余额充值操作
-    handleBalance(userId) {
-       this.openBalance = true;
-       this.userId = userId.toString();
-    },
-    // 积分变更操作
-    handlePoint(userId) {
-       this.openPoint = true
-       this.userId = userId.toString();
-    },
-    // 关闭对话框
-    closeDialog(dialog) {
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id)
+      multiple.value = !selection.length
+    
+}
+
+function handleSortChange(column, prop, order) {
+
+      queryParams.value.orderByColumn = column.prop;
+      queryParams.value.isAsc = column.order;
+      getList();
+    
+}
+
+function handleBalance(userId) {
+
+       openBalance.value = true;
+       userId.value = userId.toString();
+    
+}
+
+function handlePoint(userId) {
+
+       openPoint.value = true
+       userId.value = userId.toString();
+    
+}
+
+function closeDialog(dialog) {
+
       console.log('closeDialog');
       if (dialog == 'balance') {
-          this.openBalance = false;
+          openBalance.value = false;
       }
       if (dialog == 'point') {
-          this.openPoint = false;
+          openPoint.value = false;
       }
-      this.userId = "";
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增会员";
-    },
-    // 表单重置
-    reset() {
-      this.resetForm("form");
-      this.form.id = '';
-      this.form.description = '';
-      this.form.name = '';
-      this.form.startTime = '';
-      this.form.endTime = '';
-      this.form.groupId = '';
-      this.form.storeId = '';
-      this.form.gradeId = '';
-      this.form.userNo = '';
-      this.form.mobile = '';
-      this.form.groupInfo = {};
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      userId.value = "";
+      getList();
+    
+}
+
+function handleAdd() {
+
+      reset();
+      open.value = true;
+      title.value = "新增会员";
+    
+}
+
+function reset() {
+
+      formRef.value?.resetFields();
+      form.value.id = '';
+      form.value.description = '';
+      form.value.name = '';
+      form.value.startTime = '';
+      form.value.endTime = '';
+      form.value.groupId = '';
+      form.value.storeId = '';
+      form.value.gradeId = '';
+      form.value.userNo = '';
+      form.value.mobile = '';
+      form.value.groupInfo = {};
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-            if (this.form.id) {
-                saveMember(this.form).then(response => {
-                  this.$modal.msgSuccess("修改会员成功");
-                  this.open = false;
-                  this.getList();
+            if (form.value.id) {
+                saveMember(form.value).then(response => {
+                  modal.msgSuccess("修改会员成功");
+                  open.value = false;
+                  getList();
                 });
             } else {
-                saveMember(this.form).then(response => {
-                  this.$modal.msgSuccess("新增会员成功");
-                  this.open = false;
-                  this.getList();
+                saveMember(form.value).then(response => {
+                  modal.msgSuccess("新增会员成功");
+                  open.value = false;
+                  getList();
                 });
             }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
+    
+}
+
+function handleUpdate(row) {
+
+      reset();
+      const id = row.id || ids.value;
       getMemberInfo(id).then(response => {
-          this.form = response.data.memberInfo;
-          this.open = true;
-          this.title = "编辑会员";
+          form.value = response.data.memberInfo;
+          open.value = true;
+          title.value = "编辑会员";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    
+}
+
+function handleDelete(row) {
+
       const name = row.name;
-      this.$modal.confirm('确定删除"' + name + '"的会员信息？').then(function() {
+      modal.confirm('确定删除"' + name + '"的会员信息？').then(function() {
         return deleteMember(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    // 更多操作触发
-    handleCommand(command, row) {
+    
+}
+
+function handleCommand(command, row) {
+
       switch (command) {
         case "handleResetPwd":
-          this.handleResetPwd(row);
+          handleResetPwd(row);
           break;
         default:
           break;
       }
-    },
-    // 重置密码按钮操作
-    handleResetPwd(row) {
-      this.$prompt('重置会员号："' + row.userNo + '"的密码', "提示", {
+    
+}
+
+function handleResetPwd(row) {
+
+      ElMessageBox.prompt('重置会员号："' + row.userNo + '"的密码', "提示", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         closeOnClickModal: false,
@@ -588,11 +631,12 @@ export default {
         inputErrorMessage: "会员密码长度必须介于5和20之间"
       }).then(({ value }) => {
         resetMemberPwd({ userId: row.id, password: value }).then(response => {
-          this.$modal.msgSuccess("修改成功，新密码是：" + value);
+          modal.msgSuccess("修改成功，新密码是：" + value);
         });
       }).catch(() => {});
-    },
-  }
-};
+    
+}
+
+getList()
 </script>
 

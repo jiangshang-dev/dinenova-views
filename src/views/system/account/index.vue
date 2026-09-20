@@ -3,7 +3,7 @@
     <el-row :gutter="20">
       <!--用户数据-->
       <el-col :span="24" :xs="24">
-        <el-form :model="queryParams" class="main-search" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
+        <el-form :model="queryParams" class="main-search" ref="queryFormRef" size="small" :inline="true" v-show="showSearch" label-width="68px">
           <el-form-item label="用户名" prop="accountName">
             <el-input
               v-model="queryParams.accountName"
@@ -143,7 +143,7 @@
 
     <!-- 添加或修改管理员配置对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="600px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="用户名" prop="accountName">
@@ -249,17 +249,24 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getStoreStaffList } from "@/api/staff";
 import { searchStore } from "@/api/store";
 import { getAccountList, getAccount, delAccount, addAccount, updateAccount, resetAccountPwd, changeAccountStatus } from "@/api/system/account";
 import { getToken } from "@/utils/auth";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useStore } from 'vuex'
+import modal from '@/plugins/modal'
+import { ElMessageBox } from 'element-plus'
 
-export default {
-  name: "Account",
-  data() {
-    return {
-      // 遮罩层
+defineOptions({ name: 'Account' })
+
+const store = useStore()
+const formRef = ref(null)
+const queryFormRef = ref(null)
+
+const state = reactive({
+// 遮罩层
       loading: false,
       // 选中数组
       ids: [],
@@ -283,7 +290,7 @@ export default {
       staffOptions: [],
       merchantOptions: [],
       // 表单参数
-      form: { id: "", accountName: "", realName: "", accountStatus: 1, roleIds: [], merchantId: (this.$store.getters.merchantId ? this.$store.getters.merchantId : ""), storeId: (this.$store.getters.storeId ? this.$store.getters.storeId : ""), staffId: "" },
+      form: { id: "", accountName: "", realName: "", accountStatus: 1, roleIds: [], merchantId: (store.getters.merchantId ? store.getters.merchantId : ""), storeId: (store.getters.storeId ? store.getters.storeId : ""), staffId: "" },
       defaultProps: {
         children: "children",
         label: "label"
@@ -334,117 +341,126 @@ export default {
           { min: 5, max: 30, message: '确认密码长度必须介于 5 和 20 之间', trigger: 'blur' }
         ],
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询账户列表
-    getList() {
-      this.loading = true;
-      getAccountList(this.queryParams).then(response => {
-          this.userList = response.data.content;
-          this.total = response.data.totalElements;
-          this.loading = false;
-        }
-      );
-    },
-    // 用户状态修改
-    handleStatusChange(row) {
+})
+const { loading, ids, single, multiple, showSearch, total, userList, title, open, roleOptions, storeOptions, staffOptions, merchantOptions, form, defaultProps, upload, queryParams, columns, rules } = toRefs(state)
+
+function getList() {
+  loading.value = true
+  getAccountList(queryParams.value).then(response => {
+    userList.value = response.data.content
+    total.value = response.data.totalElements
+  }).finally(() => {
+    loading.value = false
+  })
+}
+
+function handleStatusChange(row) {
+
       let text = row.accountStatus == "1" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.accountName + '"用户吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.accountName + '"用户吗？').then(function() {
         return changeAccountStatus(row.id, row.accountStatus);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.accountStatus = row.accountStatus === "0" ? "1" : "0";
       });
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function reset() {
+
+      form.value = {
         id: undefined,
         accountName: "",
         password: "",
         accountStatus: 1,
         realName: "",
         roleIds: [],
-        storeId: this.$store.getters.storeId ? this.$store.getters.storeId : "",
-        merchantId: this.$store.getters.merchantId ? this.$store.getters.merchantId : "",
+        storeId: store.getters.storeId ? store.getters.storeId : "",
+        merchantId: store.getters.merchantId ? store.getters.merchantId : "",
         staffId: ""
       };
-      this.resetForm("form");
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.queryParams.accountName = '';
-      this.queryParams.accountStatus = '';
-      this.queryParams.realName = '';
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id);
-      this.single = selection.length != 1;
-      this.multiple = !selection.length;
-    },
-    // 更多操作触发
-    handleCommand(command, row) {
+      formRef.value?.resetFields();
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryParams.value.accountName = '';
+      queryParams.value.accountStatus = '';
+      queryParams.value.realName = '';
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id);
+      single.value = selection.length != 1;
+      multiple.value = !selection.length;
+    
+}
+
+function handleCommand(command, row) {
+
       switch (command) {
         case "handleResetPwd":
-          this.handleResetPwd(row);
+          handleResetPwd(row);
           break;
         default:
           break;
       }
-    },
-    // 新增按钮操作
-    handleAdd() {
-      const app = this;
-      app.reset();
-      getAccount(-1).then(response => {
-         app.roleOptions = response.data.roles;
-         app.storeOptions = response.data.stores;
-         app.merchantOptions = response.data.merchants;
-         app.getStaffList();
-         app.getStoreList();
-         app.open = true;
-         app.title = "新增管理员";
-      });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      const app = this;
-      app.reset();
-      const id = row.id || this.ids;
-      getAccount(id).then(response => {
-          app.form = response.data.account
-          app.form.roleIds = response.data.roleIds;
-          app.roleOptions = response.data.roles;
-          app.storeOptions = response.data.stores;
-          app.merchantOptions = response.data.merchants;
-          app.getStaffList();
-          app.getStoreList();
-          app.open = true;
-          app.title = "修改管理员";
-          app.form.password = "";
-      });
-    },
-    // 重置密码按钮操作
-    handleResetPwd(row) {
-      this.$prompt('请输入"' + row.accountName + '"的新密码', "提示", {
+    
+}
+
+function handleAdd() {
+  reset()
+  getAccount(-1).then(response => {
+    roleOptions.value = response.data.roles
+    storeOptions.value = response.data.stores
+    merchantOptions.value = response.data.merchants
+    getStaffList()
+    getStoreList()
+    open.value = true
+    title.value = '新增管理员'
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getAccount(id).then(response => {
+    form.value = response.data.account
+    form.value.roleIds = response.data.roleIds
+    roleOptions.value = response.data.roles
+    storeOptions.value = response.data.stores
+    merchantOptions.value = response.data.merchants
+    getStaffList()
+    getStoreList()
+    open.value = true
+    title.value = '修改管理员'
+    form.value.password = ''
+  })
+}
+
+function handleResetPwd(row) {
+
+      ElMessageBox.prompt('请输入"' + row.accountName + '"的新密码', "提示", {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
         closeOnClickModal: false,
@@ -452,55 +468,64 @@ export default {
         inputErrorMessage: "用户密码长度必须介于 5 和 20 之间"
       }).then(({ value }) => {
           resetAccountPwd(row.id, value).then(response => {
-            this.$modal.msgSuccess("修改成功，新密码是：" + value);
+            modal.msgSuccess("修改成功，新密码是：" + value);
           });
         }).catch(() => {});
-    },
-    // 店铺列表
-    getStoreList() {
-      const merchantId = this.form.merchantId ? this.form.merchantId : 0;
+    
+}
+
+function getStoreList() {
+
+      const merchantId = form.value.merchantId ? form.value.merchantId : 0;
       const param = { merchantId: merchantId };
       searchStore(param).then(response => {
-          this.storeOptions = response.data.storeList;
+          storeOptions.value = response.data.storeList;
       });
-    },
-    // 店铺员工列表
-    getStaffList() {
-      const storeId = this.form.storeId ? this.form.storeId : 0;
+    
+}
+
+function getStaffList() {
+
+      const storeId = form.value.storeId ? form.value.storeId : 0;
       getStoreStaffList(storeId).then(response => {
-         this.staffOptions = response.data.staffList;
+         staffOptions.value = response.data.staffList;
       });
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-            updateAccount(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
+          if (form.value.id) {
+            updateAccount(form.value).then(response => {
+              modal.msgSuccess("修改成功");
+              open.value = false;
+              getList();
             });
           } else {
-            addAccount(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
+            addAccount(form.value).then(response => {
+              modal.msgSuccess("新增成功");
+              open.value = false;
+              getList();
             });
           }
         }
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const userIds = row.id || this.ids;
-      this.$modal.confirm('您确认删除用户ID为"' + userIds + '"的账户？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      const userIds = row.id || ids.value;
+      modal.confirm('您确认删除用户ID为"' + userIds + '"的账户？').then(function() {
         return delAccount(userIds);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    }
-  }
-};
+    
+}
+
+getList()
 </script>

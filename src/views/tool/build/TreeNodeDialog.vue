@@ -59,16 +59,18 @@
     </el-dialog>
   </div>
 </template>
-<script>
+<script setup>
 import { isNumberStr } from '@/utils/index'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
 
-export default {
-  components: {},
-  inheritAttrs: false,
-  props: [],
-  data() {
-    return {
-      id: 100,
+defineOptions({ name: 'TreeNodeDialog' })
+
+const props = defineProps([])
+
+const emit = defineEmits([])
+
+const state = reactive({
+id: 100,
       formData: {
         label: undefined,
         value: undefined
@@ -100,39 +102,45 @@ export default {
           value: 'number'
         }
       ]
-    }
-  },
-  computed: {},
-  watch: {
-    // eslint-disable-next-line func-names
-    'formData.value': function (val) {
-      this.dataType = isNumberStr(val) ? 'number' : 'string'
-    }
-  },
-  created() {},
-  mounted() {},
-  methods: {
-    onOpen() {
-      this.formData = {
+})
+const { id, formData, rules, dataType, dataTypeOptions } = toRefs(state)
+
+function onOpen() {
+
+      formData.value = {
         label: undefined,
         value: undefined
       }
-    },
-    onClose() {},
-    close() {
-      this.$emit('update:visible', false)
-    },
-    handleConfirm() {
-      this.$refs.elForm.validate(valid => {
-        if (!valid) return
-        if (this.dataType === 'number') {
-          this.formData.value = parseFloat(this.formData.value)
-        }
-        this.formData.id = this.id++
-        this.$emit('commit', this.formData)
-        this.close()
-      })
-    }
-  }
+    
 }
+
+function onClose() {
+
+}
+
+function close() {
+
+      emit('update:visible', false)
+    
+}
+
+function handleConfirm() {
+
+      elFormRef.value.validate(valid => {
+        if (!valid) return
+        if (dataType.value === 'number') {
+          formData.value.value = parseFloat(formData.value.value)
+        }
+        formData.value.id = id.value++
+        emit('commit', formData.value)
+        close()
+      })
+    
+}
+
+watch(number, string)
+
+watch(() => props.function, (val) => {
+      dataType.value = isNumberStr(val) ? 'number' : 'string'
+    })
 </script>

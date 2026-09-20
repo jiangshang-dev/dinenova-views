@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <div class="main-panel">
-      <el-form ref="form" :model="form" :rules="rules" label-width="200px" style="margin-top: 20px;">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="200px" style="margin-top: 20px;">
         <el-row>
           <el-col :span="24">
             <el-form-item label="充值对象">
@@ -40,91 +40,86 @@
   </div>
 </template>
 
-<script>
-import { distribute } from "@/api/balance";
-import { getTotalMember } from "@/api/statistic";
-export default {
-  name: "Distribute",
-  data() {
-    return {
-      // 打开会员选择对话框
-      openUserSelect: false,
-      // 遮罩层
-      loading: false,
-      // 总会员数
-      totalMember: 5430,
-      // 表单参数
-      form: { object: "all", memberIds: [], amount: "", description: "" },
-      // 表单校验
-      rules: {
-        amount: [
-          { required: true, message: "请选择", trigger: "blur" },
-        ]
-      }
-    };
-  },
-  created() {
-     this.getTotalMember();
-  },
-  methods: {
-    // 取消按钮
-    cancel() {
-      this.$store.dispatch('tagsView/delView', this.$route);
-      this.$router.push('/');
-    },
-    // 提交按钮
-    submitForm: function() {
-      const app = this;
-      app.$refs["form"].validate(valid => {
-        if (valid) {
-            app.$confirm('您确定要充值吗？', '提示', {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning'
-            }).then(() => {
-                const userIds = app.form.memberIds ? app.form.memberIds.join(",") : '';
-                const param = { userIds : userIds, object: app.form.object, amount : app.form.amount, remark: app.form.description }
-                distribute(param).then(response => {
-                  if (response.code == '200') {
-                    app.$modal.msgSuccess("充值成功！");
-                    app.form = { object: "all", memberIds: [], amount: "", description: "" };
-                  } else {
-                    app.$modal.msgError("充值失败!");
-                  }
-                });
-            }).catch(() => {});
-        }
-      });
-    },
-    // 获取会员总数
-    getTotalMember() {
-      getTotalMember().then(response => {
-           this.totalMember = response.data.totalMember;
-        }
-      );
-    },
-    // 选择会员
-    selectUser() {
-      this.openUserSelect = true;
-    },
-    // 关闭对话框
-    closeDialog(dialog) {
-       if (dialog == 'selectUser') {
-           this.openUserSelect = false;
-       }
-       return true;
-    },
-    // 确定选择会员
-    doSelectUser(memberIds) {
-       this.form.memberIds = memberIds;
-       this.openUserSelect = false;
-    },
-    // 发放对象
-    objectChange() {
-       if (this.form.object == 'all') {
-           this.form.memberIds = [];
-       }
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useStore } from 'vuex'
+import { ElMessageBox } from 'element-plus'
+import modal from '@/plugins/modal'
+import UserSelect from '@/components/UserSelect'
+import { distribute } from '@/api/balance'
+import { getTotalMember } from '@/api/statistic'
+
+defineOptions({ name: 'Distribute' })
+
+const router = useRouter()
+const route = useRoute()
+const store = useStore()
+
+const openUserSelect = ref(false)
+const loading = ref(false)
+const totalMember = ref(5430)
+const form = reactive({ object: 'all', memberIds: [], amount: '', description: '' })
+const rules = {
+  amount: [{ required: true, message: '请选择', trigger: 'blur' }]
+}
+const formRef = ref(null)
+
+function cancel() {
+  store.dispatch('tagsView/delView', route)
+  router.push('/')
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      ElMessageBox.confirm('您确定要充值吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        const userIds = form.memberIds ? form.memberIds.join(',') : ''
+        const param = { userIds, object: form.object, amount: form.amount, remark: form.description }
+        distribute(param).then(response => {
+          if (response.code == '200') {
+            modal.msgSuccess('充值成功！')
+            Object.assign(form, { object: 'all', memberIds: [], amount: '', description: '' })
+          } else {
+            modal.msgError('充值失败!')
+          }
+        })
+      }).catch(() => {})
     }
+  })
+}
+
+function getTotalMemberFn() {
+  getTotalMember().then(response => {
+    totalMember.value = response.data.totalMember
+  })
+}
+
+function selectUser() {
+  openUserSelect.value = true
+}
+
+function closeDialog(dialog) {
+  if (dialog == 'selectUser') {
+    openUserSelect.value = false
   }
-};
+  return true
+}
+
+function doSelectUser(memberIds) {
+  form.memberIds = memberIds
+  openUserSelect.value = false
+}
+
+function objectChange() {
+  if (form.object == 'all') {
+    form.memberIds = []
+  }
+}
+
+getTotalMemberFn()
 </script>

@@ -242,18 +242,20 @@
   </div>
 </template>
 
-<script>
-import { getLinkUrlList } from "@/api/link/homeLink";
-// import { linkUrlList } from "@/utils/linkUrl";
+<script setup>
+import { getLinkUrlList as getLinkUrlListApi } from "@/api/link/homeLink";
 import { getToken } from "@/utils/auth";
 import draggable from "@/components/DraggableList.vue";
-export default {
-  components: {
-    draggable,
-  },
-  data() {
-    return {
-      linkUrlList: [],
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'Window' })
+
+const props = defineProps(['curItem', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+const state = reactive({
+linkUrlList: [],
       // 上传地址
       uploadAction: import.meta.env.VUE_APP_SERVER_URL + "backendApi/file/upload",
       // 隐藏上传
@@ -261,50 +263,49 @@ export default {
       // 上传文件列表
       uploadFiles: [],
       uploadHeader: { "Access-Token": getToken() },
-    };
-  },
-  created() {
-    this.curItem.style.paddingTop = parseInt(this.curItem.style.paddingTop);
-    this.curItem.style.paddingLeft = parseInt(this.curItem.style.paddingLeft);
-  },
-  props: ["curItem", "selectedIndex"],
-  mounted() {
-    this.getLinkUrlList()
-  },
-  methods: {
-    getLinkUrlList() {
-      getLinkUrlList().then(res=>{
+})
+const { linkUrlList, uploadAction, hideUpload, uploadFiles, uploadHeader } = toRefs(state)
+
+function getLinkUrlList() {
+
+      getLinkUrlListApi().then(res=>{
         console.log('res,,,', res)
         if(res.code === 200){
-          this.linkUrlList = res.data
+          linkUrlList.value = res.data
         }
       })
-    },
-    onEditorDeleleData(index, selectedIndex) {
-      this.$emit("onEditorDeleleData", index, selectedIndex);
-    },
+    
+}
 
-    //添加子组件
-    onEditorAddData() {
-      this.$emit("onEditorAddData");
-    },
+function onEditorDeleleData(index, selectedIndex) {
 
-    //替换照片
-    onEditorSelectImage(index, imgUrl) {
-      this.$emit("onEditorSelectImage", index, imgUrl);
-    },
+      emit("onEditorDeleleData", index, selectedIndex);
+    
+}
 
-    //重置颜色
-    onEditorResetColor(holder, attribute, color) {
-      this.$emit("onEditorResetColor", holder, attribute, color);
-    },
+function onEditorAddData() {
 
-    //修改图标
-    handleUploadSuccess(file, element) {
-      this.$emit("onEditorSelectImage", element, "imgUrl", file.data.filePath);
-    },
-  },
-};
+      emit("onEditorAddData");
+    
+}
+
+function onEditorSelectImage(index, imgUrl) {
+
+      emit("onEditorSelectImage", index, imgUrl);
+    
+}
+
+function onEditorResetColor(holder, attribute, color) {
+
+      emit("onEditorResetColor", holder, attribute, color);
+    
+}
+
+function handleUploadSuccess(file, element) {
+
+      emit("onEditorSelectImage", element, "imgUrl", file.data.filePath);
+    
+}
 </script>
 
 <style lang="scss" scoped>

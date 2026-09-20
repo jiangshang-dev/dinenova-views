@@ -1,7 +1,7 @@
 <template>
   <!-- 导入表 -->
   <el-dialog title="导入表" v-model="visible" width="800px" top="5vh" append-to-body>
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true">
+    <el-form :model="queryParams" ref="queryFormRef" size="small" :inline="true">
       <el-form-item label="表名称" prop="tableName">
         <el-input
           v-model="queryParams.tableName"
@@ -43,12 +43,17 @@
   </el-dialog>
 </template>
 
-<script>
+<script setup>
 import { listDbTable, importTable } from "@/api/tool/gen";
-export default {
-  data() {
-    return {
-      // 遮罩层
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'importTable' })
+
+const emit = defineEmits([])
+
+const state = reactive({
+// 遮罩层
       visible: false,
       // 选中数组值
       tables: [],
@@ -63,55 +68,67 @@ export default {
         tableName: undefined,
         tableComment: undefined
       }
-    };
-  },
-  methods: {
-    // 显示弹框
-    show() {
-      this.getList();
-      this.visible = true;
-    },
-    clickRow(row) {
-      this.$refs.table.toggleRowSelection(row);
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.tables = selection.map(item => item.tableName);
-    },
-    // 查询表数据
-    getList() {
-      listDbTable(this.queryParams).then(res => {
+})
+const { visible, tables, total, dbTableList, queryParams } = toRefs(state)
+
+function show() {
+
+      getList();
+      visible.value = true;
+    
+}
+
+function clickRow(row) {
+
+      tableRef.value.toggleRowSelection(row);
+    
+}
+
+function handleSelectionChange(selection) {
+
+      tables.value = selection.map(item => item.tableName);
+    
+}
+
+function getList() {
+
+      listDbTable(queryParams.value).then(res => {
         if (res.code === 200) {
-          this.dbTableList = res.rows;
-          this.total = res.total;
+          dbTableList.value = res.rows;
+          total.value = res.total;
         }
       });
-    },
-    /** 搜索按钮操作 */
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    /** 重置按钮操作 */
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    /** 导入按钮操作 */
-    handleImportTable() {
-      const tableNames = this.tables.join(",");
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleImportTable() {
+
+      const tableNames = tables.value.join(",");
       if (tableNames == "") {
-        this.$modal.msgError("请选择要导入的表");
+        modal.msgError("请选择要导入的表");
         return;
       }
       importTable({ tables: tableNames }).then(res => {
-        this.$modal.msgSuccess(res.msg);
+        modal.msgSuccess(res.msg);
         if (res.code === 200) {
-          this.visible = false;
-          this.$emit("ok");
+          visible.value = false;
+          emit("ok");
         }
       });
-    }
-  }
-};
+    
+}
 </script>

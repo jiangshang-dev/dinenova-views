@@ -160,29 +160,50 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { useRouter, useRoute } from 'vue-router'
+
+import modal from '@/plugins/modal'
+
+import { download } from '@/utils/request'
+
+import { parseTime } from '@/utils/fuint'
+
+import { getName } from '@/utils/fuint'
+
 import { getToken } from "@/utils/auth";
 import { getUserCouponList, deleteUserCoupon } from "@/api/coupon/userCoupon";
-export default {
-  name: "UserCouponIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 卡券类型
-      typeList: [],
-      // 状态列表
-      statusList: [],
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'UserCouponIndex' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const loading = ref(true)
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const dateRange = ref([])
+
+const showSearch = ref(true)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const typeList = reactive([])
+
+const statusList = reactive([])
+
+const defaultSort = reactive({prop: 'createTime', order: 'descending'})
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         mobile: '',
@@ -191,72 +212,70 @@ export default {
         status: '',
         id: '',
         couponId: ''
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getUserCouponList(this.queryParams).then(response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.typeList = response.data.typeList;
-          this.statusList = response.data.statusList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getUserCouponList(queryParams).then(response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          typeList.length = 0; typeList.push(...(response.data.typeList || []));
+          statusList.length = 0; statusList.push(...(response.data.statusList || []));
+          loading.value = false;
         }
       );
-    },
-    // 导出excel
-    exportExcel() {
-      this.download('/backendApi/userCoupon/exportList', {
-        ...this.queryParams
+    }
+
+function exportExcel() {
+      download('/backendApi/userCoupon/exportList', {
+        ...queryParams
       })
-    },
-    // 搜索按钮操作
-    handleQuery(isExport) {
-      this.queryParams.page = 1;
+    }
+
+function handleQuery(isExport) {
+      queryParams.page = 1;
       if (isExport) {
-          this.exportExcel();
+          exportExcel();
       } else {
-          this.getList();
+          getList();
       }
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认作废ID等于' + row.id + '的数据项？').then(function() {
+    }
+
+function resetQuery() {
+      dateRange.value = [];
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleDelete(row) {
+      modal.confirm('是否确认作废ID等于' + row.id + '的数据项？').then(function() {
         return deleteUserCoupon(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("作废成功");
+        getList();
+        modal.msgSuccess("作废成功");
       }).catch(() => {});
-    },
-    // 核销按钮操作
-    handleConfirm(row) {
-      this.$router.push( { path:  '/coupon/confirm/index?code=' + row.code } );
-    },
-  }
-};
+    }
+
+function handleConfirm(row) {
+      router.push('/coupon/confirm/index?code=' + row.code);
+    }
+
+getList();
 </script>
 

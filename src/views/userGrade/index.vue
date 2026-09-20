@@ -105,7 +105,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="等级" prop="grade">
@@ -193,188 +193,165 @@
   </div>
 </template>
 
-<script>
-import { getUserGradeList, updateUserGradeStatus, getUserGradeInfo, saveUserGrade, deleteUserGrade } from "@/api/userGrade";
-export default {
-  name: "UserGradeIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 升级条件
-      catchTypeList: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', grade: 0, name: '', catchCondition: '', userPrivilege: '', catchType: '', catchValue: '', validDay: '', discount: '', speedPoint: '', status: "A" },
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        name: '',
-        catchType: '',
-        status: ''
-      },
-      // 表单校验
-      rules: {
-        grade: [
-          { required: true, message: "等级不能为空", trigger: "blur" },
-          { pattern: /^[1-9]{1,2}$/ , message: `必须是2位数以内的正整数`, trigger: 'blur' }
-        ],
-        name: [
-          { required: true, message: "等级名称不能为空", trigger: "blur" },
-          { min: 2, max: 100, message: '等级名称长度必须介于2 和 100 之间', trigger: 'blur' }
-        ],
-        catchType: [
-          { required: true, message: "请选择升级方式", trigger: "blur" },
-        ],
-        catchValue: [
-          { required: true, message: "请输入升级条件值", trigger: "blur" },
-        ],
-        validDay: [
-          { required: true, message: "请输入有效期天数，0表述永久有效", trigger: "blur" },
-        ],
-        discount: [
-          { required: true, message: "请输入支付折扣", trigger: "blur" },
-        ],
-        speedPoint: [
-          { required: true, message: "请输入加分加速倍数", trigger: "blur" },
-        ],
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getUserGradeList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.catchTypeList = response.data.catchTypeList
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function() {
-        return updateUserGradeStatus(row.id, row.status);
-      }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
-      }).catch(function() {
-        row.status = row.status === "N" ? "A" : "N";
-      });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增会员等级";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        grade: "",
-        name: "",
-        status: "A",
-        catchType: "",
-        catchValue: "",
-        validDay: "",
-        discount: "",
-        speedPoint: "",
-        catchCondition: "",
-        userPrivilege: ""
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id) {
-              saveUserGrade(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
-              });
-          } else {
-              saveUserGrade(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
-              });
-          }
-        }
-      });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getUserGradeInfo(id).then(response => {
-        this.form = response.data.userGradeInfo;
-        this.open = true;
-        this.title = "编辑会员等级";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const name = row.name
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
-        return deleteUserGrade(row.id);
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+<script setup>
+import { ref, reactive } from 'vue'
+import modal from '@/plugins/modal'
+import { getUserGradeList, updateUserGradeStatus, getUserGradeInfo, saveUserGrade, deleteUserGrade } from '@/api/userGrade'
+
+defineOptions({ name: 'UserGradeIndex' })
+
+const loading = ref(true)
+const title = ref('')
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const catchTypeList = ref([])
+const open = ref(false)
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const form = reactive({
+  id: '',
+  grade: 0,
+  name: '',
+  catchCondition: '',
+  userPrivilege: '',
+  catchType: '',
+  catchValue: '',
+  validDay: '',
+  discount: '',
+  speedPoint: '',
+  status: 'A'
+})
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  name: '',
+  catchType: '',
+  status: ''
+})
+const rules = {
+  grade: [
+    { required: true, message: '等级不能为空', trigger: 'blur' },
+    { pattern: /^[1-9]{1,2}$/, message: '必须是2位数以内的正整数', trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: '等级名称不能为空', trigger: 'blur' },
+    { min: 2, max: 100, message: '等级名称长度必须介于2 和 100 之间', trigger: 'blur' }
+  ],
+  catchType: [{ required: true, message: '请选择升级方式', trigger: 'blur' }],
+  catchValue: [{ required: true, message: '请输入升级条件值', trigger: 'blur' }],
+  validDay: [{ required: true, message: '请输入有效期天数，0表述永久有效', trigger: 'blur' }],
+  discount: [{ required: true, message: '请输入支付折扣', trigger: 'blur' }],
+  speedPoint: [{ required: true, message: '请输入加分加速倍数', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getUserGradeList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    catchTypeList.value = response.data.catchTypeList
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleStatusChange(row) {
+  const text = row.status == 'A' ? '启用' : '禁用'
+  modal.confirm('确认要' + text + '"' + row.name + '"吗？').then(function () {
+    return updateUserGradeStatus(row.id, row.status)
+  }).then(() => {
+    modal.msgSuccess(text + '成功')
+  }).catch(function () {
+    row.status = row.status === 'N' ? 'A' : 'N'
+  })
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增会员等级'
+}
+
+function reset() {
+  Object.assign(form, {
+    id: '',
+    grade: '',
+    name: '',
+    status: 'A',
+    catchType: '',
+    catchValue: '',
+    validDay: '',
+    discount: '',
+    speedPoint: '',
+    catchCondition: '',
+    userPrivilege: ''
+  })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveUserGrade(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getUserGradeInfo(id).then(response => {
+    Object.assign(form, response.data.userGradeInfo)
+    open.value = true
+    title.value = '编辑会员等级'
+  })
+}
+
+function handleDelete(row) {
+  const name = row.name
+  modal.confirm('是否确认删除"' + name + '"的数据项？').then(function () {
+    return deleteUserGrade(row.id)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
 </script>
 

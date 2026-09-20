@@ -1,5 +1,5 @@
 <template>
-  <el-dialog class="common-dialog" title="佣金明细" :visible="showDialog" width="1200px" @close="cancel" destroy-on-close>
+  <el-dialog class="common-dialog" title="佣金明细" :model-value="showDialog" width="1200px" @close="cancel" destroy-on-close>
     <el-table ref="tables" v-loading="loading" :data="list" size="default" style="width: 100%">
       <el-table-column prop="orderId" label="订单号" width="190">
         <template #default="scope">
@@ -58,54 +58,59 @@
       :total="total"
       v-model:page="page"
       v-model:limit="pageSize"
-      @pagination="getCommissionLogList" />
+      @pagination="loadCommissionLogList" />
   </el-dialog>
 </template>
-<script>
-  import { getCommissionLogList } from "@/api/commission/log";
-  export default {
-    data() {
-      return {
-        loading: false,
-        showDialog: false,
-        uuid: [],
-        list: [],
-        page: 1, // 初始页
-        pageSize: 10, // 每页的数据
-        total: 0,
-        // 状态列表
-        statusList: [],
-      }
-    },
-    methods: {
-      init(uuid) {
-        this.uuid = uuid;
-        this.showDialog = true;
-        this.getCommissionLogList();
-      },
-      getCommissionLogList() {
-        let params = {
-          page: this.page,
-          pageSize: this.pageSize,
-          uuid: this.uuid
-        }
-        this.loading = true;
-        getCommissionLogList(params).then(response => {
-            this.list = response.data.dataList.content;
-            this.total = response.data.dataList.totalElements;
-            this.statusList = response.data.statusList;
-            this.targetList = response.data.targetList;
-            this.loading = false;
-          }
-        );
-      },
-      cancel() {
-        this.showDialog = false;
-      },
-      // 订单详情
-      handleView(orderId) {
-        this.$router.push({path: '/order/detail?orderId=' + orderId})
-      }
-    }
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { parseTime, getName } from '@/utils/fuint'
+import { getCommissionLogList as fetchCommissionLogList } from '@/api/commission/log'
+
+defineOptions({ name: 'CommissionCashDetail' })
+
+const router = useRouter()
+
+const loading = ref(false)
+const showDialog = ref(false)
+const uuid = ref('')
+const list = ref([])
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const statusList = ref([])
+const targetList = ref([])
+const tables = ref(null)
+
+function init(id) {
+  uuid.value = id
+  showDialog.value = true
+  loadCommissionLogList()
+}
+
+function loadCommissionLogList() {
+  const params = {
+    page: page.value,
+    pageSize: pageSize.value,
+    uuid: uuid.value
   }
+  loading.value = true
+  fetchCommissionLogList(params).then((response) => {
+    list.value = response.data.dataList.content
+    total.value = response.data.dataList.totalElements
+    statusList.value = response.data.statusList
+    targetList.value = response.data.targetList
+    loading.value = false
+  })
+}
+
+function cancel() {
+  showDialog.value = false
+}
+
+function handleView(orderId) {
+  router.push('/order/detail?orderId=' + orderId)
+}
+
+defineExpose({ init })
 </script>

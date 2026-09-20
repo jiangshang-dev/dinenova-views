@@ -231,196 +231,229 @@
     </el-dialog>
   </div>
 </template>
-<script>
-  import { getCommissionLogList, updateCommissionLog, deleteCommissionLog, doSettle } from "@/api/commission/log";
-  import { getCashList, confirmCommissionCash, cancelCommissionCash } from "@/api/commission/cash";
-  import { searchStore } from "@/api/store";
-  export default {
-    name: 'logIndex',
-    data() {
-      return {
-        loading: false,
-        // 发起结算对话框
-        settleDialog: false,
-        cashList: [],
-        totalCash: 0,
-        // 是否显示弹出层
-        openEdit: false,
-        updateForm : {},
-        // 状态列表
-        statusList: [],
-        // 分佣对象
-        targetList: [],
-        page: 1,
-        pageSize: 10,
-        total: 0,
-        list: [],
-        storeOptions: [],
-        realName: '',
-        mobile: '',
-        storeId: '',
-        status: '',
-        target: '',
-        startTime: null,
-        endTime: null,
-        openStaffScheme: false,
-        detailDialog: false,
-        uuid: ''
-      }
-    },
-    methods: {
-      getCommissionLogList() {
+<script setup>
+import { reactive, ref } from 'vue'
+
+import { useRouter, useRoute } from 'vue-router'
+
+import modal from '@/plugins/modal'
+import { ElMessageBox } from 'element-plus'
+
+import { parseTime } from '@/utils/fuint'
+
+import { getName } from '@/utils/fuint'
+
+import { getCommissionLogList as fetchCommissionLogList, updateCommissionLog, deleteCommissionLog, doSettle as submitSettleRequest } from '@/api/commission/log'
+import { getCashList, confirmCommissionCash, cancelCommissionCash } from "@/api/commission/cash";
+import { searchStore } from "@/api/store";
+
+
+defineOptions({ name: 'logIndex' })
+
+
+const router = useRouter()
+const route = useRoute()
+
+const loading = ref(false)
+
+const settleDialog = ref(false)
+
+const cashList = reactive([])
+
+const totalCash = ref(0)
+
+const openEdit = ref(false)
+
+const updateForm = reactive({})
+
+const statusList = reactive([])
+
+const targetList = reactive([])
+
+const page = ref(1)
+
+const pageSize = ref(10)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const storeOptions = reactive([])
+
+const realName = ref('')
+
+const mobile = ref('')
+
+const storeId = ref('')
+
+const status = ref('')
+
+const target = ref('')
+
+const startTime = ref(null)
+
+const endTime = ref(null)
+
+const openStaffScheme = ref(false)
+
+const detailDialog = ref(false)
+
+const uuid = ref('')
+
+const formRef = ref(null)
+
+const tables = ref(null)
+
+function loadCommissionLogList() {
         let params = {
-          page: this.page,
-          pageSize: this.pageSize,
-          target: this.target,
-          realName: this.realName,
-          mobile: this.mobile,
-          storeId: this.storeId,
-          status: this.status,
-          startTime: this.startTime,
-          endTime: this.endTime
+          page: page.value,
+          pageSize: pageSize.value,
+          target: target.value,
+          realName: realName.value,
+          mobile: mobile.value,
+          storeId: storeId.value,
+          status: status.value,
+          startTime: startTime.value,
+          endTime: endTime.value
         }
-        this.loading = true;
-        getCommissionLogList(params).then(response => {
-            this.list = response.data.dataList.content;
-            this.total = response.data.dataList.totalElements;
-            this.statusList = response.data.statusList;
-            this.targetList = response.data.targetList;
-            this.loading = false;
+        loading.value = true;
+        fetchCommissionLogList(params).then(response => {
+            list.splice(0, list.length, ...response.data.dataList.content);
+            total.value = response.data.dataList.totalElements;
+            statusList.splice(0, statusList.length, ...response.data.statusList);
+            targetList.splice(0, targetList.length, ...response.data.targetList);
+            loading.value = false;
           }
         );
-      },
-      handleQuery() {
-        this.getCommissionLogList();
-      },
-      // 重置按钮操作
-      resetQuery() {
-        this.page = 1;
-        this.mobile = '';
-        this.storeId = '';
-        this.status = '';
-        this.realName = '';
-        this.startTime = '';
-        this.endTime = '';
-        this.handleQuery();
-      },
-      // 修改按钮
-      handleUpdate(row) {
-        this.openEdit = true;
-        this.updateForm = row;
-      },
-      // 作废按钮
-      handleCancel(row) {
-        const app = this;
-        app.$confirm('您确定要作废该笔佣金吗？', '提示', {
+      }
+
+function handleQuery() {
+        loadCommissionLogList();
+      }
+
+function resetQuery() {
+        page.value = 1;
+        mobile.value = '';
+        storeId.value = '';
+        status.value = '';
+        realName.value = '';
+        startTime.value = '';
+        endTime.value = '';
+        handleQuery();
+      }
+
+function handleUpdate(row) {
+        openEdit.value = true;
+        Object.assign(updateForm, row);
+      }
+
+function handleCancel(row) {
+        
+        ElMessageBox.confirm('您确定要作废该笔佣金吗？', '提示', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
           deleteCommissionLog(row.id).then(response => {
             if (response.code == '200') {
-                app.$modal.msgSuccess("操作成功！");
-                app.getCommissionLogList();
+                modal.msgSuccess("操作成功！");
+                loadCommissionLogList();
             } else {
-                app.$modal.msgError("操作失败!");
+                modal.msgError("操作失败!");
             }
           });
         }).catch(() => {});
-      },
-      // 确定修改
-      submitUpdate() {
-        updateCommissionLog(this.updateForm).then(response => {
-          this.$modal.msgSuccess("提交成功");
-          this.updateForm = {};
-          this.openEdit = false;
-          this.getCommissionLogList();
+      }
+
+function submitUpdate() {
+        updateCommissionLog(updateForm).then(response => {
+          modal.msgSuccess("提交成功");
+          Object.keys(updateForm).forEach((key) => delete updateForm[key])
+          openEdit.value = false;
+          loadCommissionLogList();
         }).catch(function() {
-          this.$modal.msgError("提交失败");
+          modal.msgError("提交失败");
         });
-      },
-      // 取消修改
-      cancelUpdate() {
-        this.updateForm = {};
-        this.openEdit = false;
-      },
-      // 发起结算
-      doSettle() {
-        const app = this;
-        app.$confirm('您确定要发起结算吗？', '提示', {
+      }
+
+function cancelUpdate() {
+        Object.keys(updateForm).forEach((key) => delete updateForm[key])
+        openEdit.value = false;
+      }
+
+function doSettle() {
+        
+        ElMessageBox.confirm('您确定要发起结算吗？', '提示', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
           let params = {
-            target: this.target,
-            realName: this.realName,
-            mobile: this.mobile,
-            storeId: this.storeId,
-            startTime: this.startTime,
-            endTime: this.endTime
+            target: target.value,
+            realName: realName.value,
+            mobile: mobile.value,
+            storeId: storeId.value,
+            startTime: startTime.value,
+            endTime: endTime.value
           }
-          doSettle(params).then(response => {
+          submitSettleRequest(params).then(response => {
             if (response.code == '200') {
-                app.$modal.msgSuccess("操作成功！");
-                app.uuid = response.data;
-                app.queryCashList();
+                modal.msgSuccess("操作成功！");
+                uuid.value = response.data;
+                queryCashList();
             } else {
-                app.$modal.msgError("操作失败!");
+                modal.msgError("操作失败!");
             }
           });
         }).catch(() => {});
-      },
-      // 提交结算
-      submitSettle() {
-        this.settleDialog = false;
-        confirmCommissionCash({ uuid: this.uuid }).then(response => {
-          this.getCommissionLogList();
-          this.settleDialog = false;
-          this.$modal.msgSuccess("确认成功！");
+      }
+
+function submitSettle() {
+        settleDialog.value = false;
+        confirmCommissionCash({ uuid: uuid.value }).then(response => {
+          loadCommissionLogList();
+          settleDialog.value = false;
+          modal.msgSuccess("确认成功！");
         }).catch(function() {
-           this.$modal.msgError("确认失败");
+           modal.msgError("确认失败");
         });
-      },
-      // 取消结算
-      cancelSettle() {
-        this.settleDialog = false;
-        cancelCommissionCash({ uuid: this.uuid }).then(response => {
-          this.getCommissionLogList();
-          this.settleDialog = false;
-          this.$modal.msgSuccess("取消成功！");
+      }
+
+function cancelSettle() {
+        settleDialog.value = false;
+        cancelCommissionCash({ uuid: uuid.value }).then(response => {
+          loadCommissionLogList();
+          settleDialog.value = false;
+          modal.msgSuccess("取消成功！");
         }).catch(function() {
-          this.$modal.msgError("取消结算");
+          modal.msgError("取消结算");
         });
-      },
-      // 查询结算列表
-      queryCashList() {
-        this.loading = true;
-        getCashList({ uuid: this.uuid } ).then(response => {
-           this.cashList = response.data.dataList.content;
-           this.totalCash = response.data.dataList.totalElements;
-           this.statusList = response.data.statusList;
-           this.settleDialog = true;
-           this.loading = false;
+      }
+
+function queryCashList() {
+        loading.value = true;
+        getCashList({ uuid: uuid.value } ).then(response => {
+           cashList.length = 0; cashList.push(...(response.data.dataList.content || []));
+           totalCash.value = response.data.dataList.totalElements;
+           statusList.length = 0; statusList.push(...(response.data.statusList || []));
+           settleDialog.value = true;
+           loading.value = false;
         });
-      },
-      // 店铺列表
-      getStoreList() {
+      }
+
+function getStoreList() {
         searchStore().then(response => {
-            this.storeOptions = response.data.storeList;
+            storeOptions.length = 0; storeOptions.push(...(response.data.storeList || []));
           }
         )
-      },
-      // 订单详情
-      handleView(orderId) {
-        this.$router.push({path: '/order/detail?orderId=' + orderId})
       }
-    },
-    created: function () {
-      this.getCommissionLogList();
-      this.getStoreList();
-    }
-  }
+
+function handleView(orderId) {
+        router.push('/order/detail?orderId=' + orderId)
+      }
+
+loadCommissionLogList();
+getStoreList();
 </script>
 <style scoped>
 

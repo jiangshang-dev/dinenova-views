@@ -11,46 +11,43 @@
   </el-dropdown>
 </template>
 
-<script>
-export default {
-  data() {
-    return {
-      sizeOptions: [
-        { label: 'Default', value: 'default' },
-        { label: 'Medium', value: 'medium' },
-        { label: 'Small', value: 'small' },
-        { label: 'Mini', value: 'mini' }
-      ]
-    }
-  },
-  computed: {
-    size() {
-      return this.$store.getters.size
-    }
-  },
-  methods: {
-    handleSetSize(size) {
-      this.$ELEMENT.size = size
-      this.$store.dispatch('app/setSize', size)
-      this.refreshView()
-      this.$message({
-        message: 'Switch Size Success',
-        type: 'success'
-      })
-    },
-    refreshView() {
-      // In order to make the cached page re-rendered
-      this.$store.dispatch('tagsView/delAllCachedViews', this.$route)
+<script setup>
+import { computed, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useStore } from 'vuex'
+import { ElMessage } from 'element-plus'
 
-      const { fullPath } = this.$route
+defineOptions({ name: 'SizeSelect' })
 
-      this.$nextTick(() => {
-        this.$router.replace({
-          path: '/redirect' + fullPath
-        })
-      })
-    }
-  }
+const route = useRoute()
+const router = useRouter()
+const store = useStore()
 
+const sizeOptions = [
+  { label: 'Default', value: 'default' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'Small', value: 'small' },
+  { label: 'Mini', value: 'mini' }
+]
+
+const size = computed(() => store.getters.size)
+
+function handleSetSize(newSize) {
+  store.dispatch('app/setSize', newSize)
+  refreshView()
+  ElMessage({
+    message: 'Switch Size Success',
+    type: 'success'
+  })
+}
+
+function refreshView() {
+  store.dispatch('tagsView/delAllCachedViews', route)
+  const { fullPath } = route
+  nextTick(() => {
+    router.replace({
+      path: '/redirect' + fullPath
+    })
+  })
 }
 </script>

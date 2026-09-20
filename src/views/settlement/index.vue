@@ -94,7 +94,7 @@
 
     <!-- 结算对话框 -->
     <el-dialog title="发起结算" v-model="settleDialog" class="common-dialog" width="80%" append-to-body>
-      <el-form ref="form" :model="form" label-width="120px" size="small" :inline="true">
+      <el-form ref="formRef" :model="form" label-width="120px" size="small" :inline="true">
         <el-row>
             <el-form-item label="结算商户" prop="merchantId">
               <el-select class="input" v-model="form.merchantId" style="width: 240px" placeholder="请选择商户">
@@ -235,194 +235,178 @@
   </div>
 </template>
 
-<script>
-import { getSettlementList, getSettlementInfo, doSubmit, doConfirm } from "@/api/settlement";
-import { getOrderList } from "@/api/order";
-export default {
-  name: "Settlement",
-  data() {
-    return {
-      // 发起结算
-      settleDialog: false,
-      // 结算详情
-      detailDialog: false,
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 商户列表
-      merchantList: [],
-      // 店铺列表
-      storeList: [],
-      // 订单列表
-      orderList: [],
-      // 总订单数
-      totalOrder: 0,
-      // 订单状态列表
-      statusList: [],
-      // 结算状态列表
-      settleStatusList: [],
-      // 结算详情
-      settlementInfo: null,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        status: ''
-      },
-      // 结算详情查询参数
-      settlementInfoQuery: {
-        settlementId: 0,
-        page: 1,
-        pageSize: 10
-      },
-      // 结算单订单数量
-      settlementInfoTotalOrder: 0,
-      form: { page: 1, pageSize: 10, merchantId: this.$store.getters.merchantId, storeId: '', startTime: '', endTime: '' }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getSettlementList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.merchantList = response.data.merchantList;
-          this.storeList = response.data.storeList;
-          this.settleStatusList = response.data.statusList;
-          this.loading = false;
+<script setup>
+import { ref, reactive } from 'vue'
+import { useStore } from 'vuex'
+import { parseTime, getName } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getSettlementList, getSettlementInfo as fetchSettlementInfo, doSubmit as submitSettlement, doConfirm as confirmSettlement } from '@/api/settlement'
+import { getOrderList } from '@/api/order'
+
+defineOptions({ name: 'Settlement' })
+
+const store = useStore()
+
+const settleDialog = ref(false)
+const detailDialog = ref(false)
+const loading = ref(true)
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const total = ref(0)
+const list = ref([])
+const merchantList = ref([])
+const storeList = ref([])
+const orderList = ref([])
+const totalOrder = ref(0)
+const statusList = ref([])
+const settleStatusList = ref([])
+const settlementInfo = ref(null)
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  status: ''
+})
+const settlementInfoQuery = reactive({
+  settlementId: 0,
+  page: 1,
+  pageSize: 10
+})
+const settlementInfoTotalOrder = ref(0)
+const form = reactive({
+  page: 1,
+  pageSize: 10,
+  merchantId: store.getters.merchantId,
+  storeId: '',
+  startTime: '',
+  endTime: ''
+})
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getSettlementList(queryParams).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    merchantList.value = response.data.merchantList
+    storeList.value = response.data.storeList
+    settleStatusList.value = response.data.statusList
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.id)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function doSettle() {
+  settleDialog.value = true
+  form.merchantId = store.getters.merchantId
+  form.storeId = ''
+  form.startTime = ''
+  form.endTime = ''
+}
+
+function cancelSettle() {
+  settleDialog.value = false
+}
+
+function doSubmit() {
+  loading.value = true
+  formRef.value?.validate(valid => {
+    if (valid) {
+      submitSettlement(form).then(response => {
+        settleDialog.value = false
+        loading.value = false
+        if (response.data) {
+          modal.msgSuccess('提交结算成功！')
+          getList()
+          orderList.value = []
+          totalOrder.value = 0
         }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 发起结算
-    doSettle() {
-      this.settleDialog = true;
-      this.form.merchantId = this.$store.getters.merchantId;
-      this.form.storeId = '';
-      this.form.startTime = '';
-      this.form.endTime = '';
-    },
-    // 取消结算
-    cancelSettle() {
-      this.settleDialog = false;
-    },
-    // 提交结算
-    doSubmit() {
-      const app = this;
-      app.loading = true;
-      app.$refs["form"].validate(valid => {
-        if (valid) {
-            doSubmit(this.form).then(response => {
-              app.settleDialog = false;
-              app.loading = false;
-              if (response.data) {
-                  app.$modal.msgSuccess("提交结算成功！");
-                  app.getList();
-                  app.orderList = [];
-                  app.totalOrder = 0;
-              }
-            }).catch(function() {
-                app.loading = false;
-            });
-        }
-      });
-    },
-    // 结算确认
-    doConfirm(row) {
-      const app = this;
-      app.$modal.confirm('确定已完成结算吗？').then(function() {
-        let param = { settlementId: row.id };
-        app.loading = true;
-        doConfirm(param).then(response => {
-            app.loading = false;
-            if (response.code == '200') {
-                app.$modal.msgSuccess("完成结算");
-                app.getList();
-            } else {
-                app.$modal.msgError("确认失败");
-            }
-        }).catch(function() {
-            app.loading = false;
-        });
+      }).catch(function () {
+        loading.value = false
       })
-    },
-    // 查看结算详情
-    onDetail(row) {
-       this.settlementInfoQuery.settlementId = row.id;
-       this.getSettlementInfo();
-       this.detailDialog = true;
-    },
-    // 查询结算详情
-    getSettlementInfo() {
-      const app = this;
-      app.loading = true;
-      getSettlementInfo(app.settlementInfoQuery).then(response => {
-        app.settlementInfo = response.data.settlementInfo;
-        app.settlementInfoTotalOrder = app.settlementInfo.orderList.totalElements;
-        app.statusList = response.data.statusList;
-        app.loading = false;
-      }).catch(function() {
-        app.loading = false;
-      });
-    },
-    // 关闭详情对话框
-    closeDetail() {
-      this.settlementInfo = null;
-      this.detailDialog = false;
-    },
-    // 查询订单
-    queryOrder() {
-      const app = this;
-      app.loading = true;
-      app.form.payStatus = 'B';
-      app.form.settleStatus = 'A';
-      getOrderList(this.form).then( response => {
-          app.orderList = response.data.paginationResponse.content;
-          app.totalOrder = response.data.paginationResponse.totalElements;
-          app.statusList = response.data.statusList;
-          app.loading = false;
-        }).catch(function() {
-           app.loading = false;
-      });;
     }
-  }
-};
+  })
+}
+
+function doConfirm(row) {
+  modal.confirm('确定已完成结算吗？').then(function () {
+    const param = { settlementId: row.id }
+    loading.value = true
+    confirmSettlement(param).then(response => {
+      loading.value = false
+      if (response.code == '200') {
+        modal.msgSuccess('完成结算')
+        getList()
+      } else {
+        modal.msgError('确认失败')
+      }
+    }).catch(function () {
+      loading.value = false
+    })
+  })
+}
+
+function onDetail(row) {
+  settlementInfoQuery.settlementId = row.id
+  getSettlementInfo()
+  detailDialog.value = true
+}
+
+function getSettlementInfo() {
+  loading.value = true
+  fetchSettlementInfo(settlementInfoQuery).then(response => {
+    settlementInfo.value = response.data.settlementInfo
+    settlementInfoTotalOrder.value = settlementInfo.value.orderList.totalElements
+    statusList.value = response.data.statusList
+    loading.value = false
+  }).catch(function () {
+    loading.value = false
+  })
+}
+
+function closeDetail() {
+  settlementInfo.value = null
+  detailDialog.value = false
+}
+
+function queryOrder() {
+  loading.value = true
+  form.payStatus = 'B'
+  form.settleStatus = 'A'
+  getOrderList(form).then(response => {
+    orderList.value = response.data.paginationResponse.content
+    totalOrder.value = response.data.paginationResponse.totalElements
+    statusList.value = response.data.statusList
+    loading.value = false
+  }).catch(function () {
+    loading.value = false
+  })
+}
+
+getList()
 </script>
 

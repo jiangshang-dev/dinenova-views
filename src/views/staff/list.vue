@@ -120,7 +120,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="员工类别" prop="category">
@@ -190,182 +190,150 @@
   </div>
 </template>
 
-<script>
-import { getStaffList, getStaffInfo, updateStaffStatus, deleteStaff, saveStaff } from "@/api/staff";
-import { searchStore } from "@/api/store";
+<script setup>
+import { ref, reactive } from 'vue'
+import { parseTime, getName, addDateRange } from '@/utils/fuint'
+import modal from '@/plugins/modal'
+import { getStaffList, getStaffInfo, updateStaffStatus, deleteStaff, saveStaff } from '@/api/staff'
+import { searchStore } from '@/api/store'
 
-export default {
-  name: "StaffList",
-  data() {
-    return {
-      // 标题
-      title: "",
-      // 遮罩层
-      loading: true,
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      categoryOptions: [],
-      storeOptions: [],
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 日期范围
-      dateRange: [],
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', category: '0', realName: '', auditedStatus: 'A', mobile: '', storeId: '' },
-      // 查询参数
-      queryParams: {
-        page: 1,
-        pageSize: 10,
-        realName: '',
-        mobile: '',
-        auditedStatus: ''
-      },
-      // 表单校验
-      rules: {
-        realName: [
-          { required: true, message: "姓名不能为空", trigger: "blur" },
-          { min: 2, max: 30, message: '姓名长度必须介于 2 和 20 之间', trigger: 'blur' }
-        ],
-        mobile: [
-          { required: true, message: "手机号不能为空", trigger: "blur" },
-          { min: 11, max: 20, message: '手机号长度必须11', trigger: 'blur' }
-        ],
-        storeId: [
-          { required: true, message: "请选择所属店铺", trigger: "blur" }
-        ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-    this.getStoreList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getStaffList(this.addDateRange(this.queryParams, this.dateRange)).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.categoryOptions = response.data.categoryList;
-          this.loading = false;
-        }
-      );
-    },
-    // 店铺列表
-    getStoreList() {
-      searchStore().then( response => {
-          this.storeOptions = response.data.storeList;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
-      let text = row.auditedStatus == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.realName + '"吗？').then(function() {
-          return updateStaffStatus(row.id, row.auditedStatus);
-      }).then(() => {
-          this.$modal.msgSuccess(text + "成功");
-      }).catch(function() {
-          row.auditedStatus = row.auditedStatus === "A" ? "A" : "N";
-      });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.operId)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增员工";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: "",
-        name: "",
-        category: '0',
-        auditedStatus: "A",
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (!this.form.id) {
-            saveStaff(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
-            });
-          } else {
-            saveStaff(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
-            });
-          }
-        }
-      });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
-      getStaffInfo(id).then(response => {
-        this.form = response.data.staffInfo;
-        this.form.category = response.data.staffInfo.category + '';
-        this.open = true;
-        this.title = "编辑员工信息";
-      });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const name = row.realName || this.id;
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
-        return deleteStaff(row.id);
-      }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
-      }).catch(() => {});
+defineOptions({ name: 'StaffList' })
+
+const title = ref('')
+const loading = ref(true)
+const ids = ref([])
+const multiple = ref(true)
+const showSearch = ref(true)
+const categoryOptions = ref([])
+const storeOptions = ref([])
+const total = ref(0)
+const list = ref([])
+const open = ref(false)
+const dateRange = ref([])
+const defaultSort = { prop: 'createTime', order: 'descending' }
+const form = reactive({ id: '', category: '0', realName: '', auditedStatus: 'A', mobile: '', storeId: '' })
+const queryParams = reactive({
+  page: 1,
+  pageSize: 10,
+  realName: '',
+  mobile: '',
+  auditedStatus: ''
+})
+const rules = {
+  realName: [
+    { required: true, message: '姓名不能为空', trigger: 'blur' },
+    { min: 2, max: 30, message: '姓名长度必须介于 2 和 20 之间', trigger: 'blur' }
+  ],
+  mobile: [
+    { required: true, message: '手机号不能为空', trigger: 'blur' },
+    { min: 11, max: 20, message: '手机号长度必须11', trigger: 'blur' }
+  ],
+  storeId: [{ required: true, message: '请选择所属店铺', trigger: 'blur' }]
+}
+const queryForm = ref(null)
+const tables = ref(null)
+const formRef = ref(null)
+
+function getList() {
+  loading.value = true
+  getStaffList(addDateRange(queryParams, dateRange.value)).then(response => {
+    list.value = response.data.paginationResponse.content
+    total.value = response.data.paginationResponse.totalElements
+    categoryOptions.value = response.data.categoryList
+    loading.value = false
+  })
+}
+
+function getStoreListFn() {
+  searchStore().then(response => {
+    storeOptions.value = response.data.storeList
+  })
+}
+
+function handleQuery() {
+  queryParams.page = 1
+  getList()
+}
+
+function resetQuery() {
+  dateRange.value = []
+  queryForm.value?.resetFields()
+  tables.value?.sort(defaultSort.prop, defaultSort.order)
+  handleQuery()
+}
+
+function handleStatusChange(row) {
+  const text = row.auditedStatus == 'A' ? '启用' : '禁用'
+  modal.confirm('确认要' + text + '"' + row.realName + '"吗？').then(function () {
+    return updateStaffStatus(row.id, row.auditedStatus)
+  }).then(() => {
+    modal.msgSuccess(text + '成功')
+  }).catch(function () {
+    row.auditedStatus = row.auditedStatus === 'A' ? 'A' : 'N'
+  })
+}
+
+function handleSelectionChange(selection) {
+  ids.value = selection.map(item => item.operId)
+  multiple.value = !selection.length
+}
+
+function handleSortChange(column) {
+  queryParams.orderByColumn = column.prop
+  queryParams.isAsc = column.order
+  getList()
+}
+
+function handleAdd() {
+  reset()
+  open.value = true
+  title.value = '新增员工'
+}
+
+function reset() {
+  Object.assign(form, { id: '', name: '', category: '0', auditedStatus: 'A' })
+  formRef.value?.resetFields()
+}
+
+function cancel() {
+  open.value = false
+  reset()
+}
+
+function submitForm() {
+  formRef.value.validate(valid => {
+    if (valid) {
+      saveStaff(form).then(() => {
+        modal.msgSuccess(form.id ? '修改成功' : '新增成功')
+        open.value = false
+        getList()
+      })
     }
-  }
-};
+  })
+}
+
+function handleUpdate(row) {
+  reset()
+  const id = row.id || ids.value
+  getStaffInfo(id).then(response => {
+    Object.assign(form, response.data.staffInfo)
+    form.category = response.data.staffInfo.category + ''
+    open.value = true
+    title.value = '编辑员工信息'
+  })
+}
+
+function handleDelete(row) {
+  const name = row.realName || row.id
+  modal.confirm('是否确认删除"' + name + '"的数据项？').then(function () {
+    return deleteStaff(row.id)
+  }).then(() => {
+    getList()
+    modal.msgSuccess('删除成功')
+  }).catch(() => {})
+}
+
+getList()
+getStoreListFn()
 </script>
 

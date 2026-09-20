@@ -1,5 +1,5 @@
 <template>
-    <el-dialog class="common-dialog" title="挂单列表" :visible="showDialog" @close="close" width="1000px" destroy-on-close>
+    <el-dialog class="common-dialog" title="挂单列表" :model-value="showDialog" @close="close" width="1000px" destroy-on-close>
         <el-alert title="提示：请选择一个空白位置挂单" type="warning" :closable="false"></el-alert>
         <div class="order-list">
           <div class="order-item" v-for="orderInfo in orderList">
@@ -24,11 +24,15 @@
         </div></template>
     </el-dialog>
 </template>
-<script>
-import { doHangUp, getHangUpList, removeHangUp } from "@/api/cashier";
-export default {
-    props: {
-      showDialog: {
+<script setup>
+import { doHangUp as doHangUpApi, getHangUpList as fetchHangUpList, removeHangUp } from "@/api/cashier";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'hangUpDialog' })
+
+const props = defineProps({
+showDialog: {
         type:[Boolean],
         default:()=>false
       },
@@ -40,71 +44,81 @@ export default {
         type:[Array],
         default:()=>[]
       },
-    },
-    watch: {
-      showDialog(value) {
-        if (value) {
-            console.log('memberInfo = ', this.memberInfo)
-            this.getHangUpList();
-        }
-      }
-    },
-    data(){
-        return {
-          loading: false,
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+loading: false,
           orderList: []
-        }
-    },
-    methods: {
-        // 删除挂单
-        remove(hangNo) {
-          const app = this;
+})
+const { loading, orderList } = toRefs(state)
+
+function remove(hangNo) {
+
+          ;
           const param = { hangNo: hangNo };
           removeHangUp(param).then( response => {
             if (response) {
-                app.$modal.msgSuccess("删除挂单成功！");
-                app.getHangUpList();
+                modal.msgSuccess("删除挂单成功！");
+                getHangUpList();
             }
           })
-        },
-        // 执行挂单
-        doHangUp(hangNo) {
-           const app = this;
-           if (!app.cartList || app.cartList.length < 1) {
-               app.$modal.alert("请先添加结算商品！");
+        
+}
+
+function doHangUp(hangNo) {
+
+           ;
+           if (!props.cartList || props.cartList.length < 1) {
+               modal.alert("请先添加结算商品！");
                return false;
            }
            let cartIds = [];
-           app.cartList.forEach(function(cart) {
+           props.cartList.forEach(function(cart) {
               cartIds.push(cart.cartId);
            })
-           const param = { hangNo: hangNo, userId: app.memberInfo ? app.memberInfo : '', cartIds: cartIds.join(',') };
-           doHangUp(param).then( response => {
+           const param = { hangNo: hangNo, userId: props.memberInfo ? props.memberInfo : '', cartIds: cartIds.join(',') };
+           doHangUpApi(param).then( response => {
                if (response) {
-                   app.$modal.msgSuccess("挂单成功！");
-                   app.getHangUpList();
-                   app.$emit('doHangUp');
+                   modal.msgSuccess("挂单成功！");
+                   getHangUpList();
+                   emit('doHangUp');
                }
            })
-        },
-        // 获取挂单列表
-        getHangUpList() {
-          const app = this;
-          getHangUpList().then( response => {
+        
+}
+
+function getHangUpList() {
+
+          ;
+          fetchHangUpList().then( response => {
             if (response.data) {
-                app.orderList = response.data;
+                orderList.value = response.data;
             }
           })
-        },
-        // 取单
-        getHangUp(hangNo, memberInfo) {
-           this.$emit('getHangNo', { 'hangNo': hangNo, 'memberInfo': memberInfo });
-        },
-        close() {
-           this.$emit('closeDialog','hangUpDialog');
-        }
-    }
+        
 }
+
+function getHangUp(hangNo, memberInfo) {
+
+           emit('getHangNo', { 'hangNo': hangNo, 'memberInfo': memberInfo });
+        
+}
+
+function close() {
+
+           emit('closeDialog','hangUpDialog');
+        
+}
+
+watch(() => props.showDialog, (value) => {
+        if (value) {
+            console.log('memberInfo = ', props.memberInfo)
+            getHangUpList();
+        }
+      })
+
 </script>
 <style lang="scss" scoped>
   .order-list {

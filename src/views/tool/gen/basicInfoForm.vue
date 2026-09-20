@@ -30,17 +30,20 @@
   </el-form>
 </template>
 
-<script>
-export default {
-  props: {
-    info: {
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'basicInfoForm' })
+
+const props = defineProps({
+info: {
       type: Object,
       default: null
     }
-  },
-  data() {
-    return {
-      rules: {
+})
+
+const state = reactive({
+rules: {
         tableName: [
           { required: true, message: "请输入表名称", trigger: "blur" }
         ],
@@ -54,7 +57,6 @@ export default {
           { required: true, message: "请输入作者", trigger: "blur" }
         ]
       }
-    };
-  }
-};
+})
+const { rules } = toRefs(state)
 </script>

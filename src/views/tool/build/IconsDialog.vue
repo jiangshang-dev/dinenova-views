@@ -29,43 +29,49 @@
     </el-dialog>
   </div>
 </template>
-<script>
-import iconList from '@/utils/generator/icon.json'
+<script setup>
+import iconListJson from '@/utils/generator/icon.json'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
 
-const originList = iconList.map(name => `el-icon-${name}`)
+defineOptions({ name: 'IconsDialog' })
 
-export default {
-  inheritAttrs: false,
-  props: ['current'],
-  data() {
-    return {
-      iconList: originList,
+const props = defineProps(['current'])
+
+const emit = defineEmits([])
+
+const state = reactive({
+      iconList: iconListJson,
       active: null,
       key: ''
-    }
-  },
-  watch: {
-    key(val) {
-      if (val) {
-        this.iconList = originList.filter(name => name.indexOf(val) > -1)
-      } else {
-        this.iconList = originList
-      }
-    }
-  },
-  methods: {
-    onOpen() {
-      this.active = this.current
-      this.key = ''
-    },
-    onClose() {},
-    onSelect(icon) {
-      this.active = icon
-      this.$emit('select', icon)
-      this.$emit('update:visible', false)
-    }
-  }
+})
+const { iconList, active, key } = toRefs(state)
+
+function onOpen() {
+
+      active.value = props.current
+      key.value = ''
+    
 }
+
+function onClose() {
+
+}
+
+function onSelect(icon) {
+
+      active.value = icon
+      emit('select', icon)
+      emit('update:visible', false)
+    
+}
+
+watch(key, (val) => {
+      if (val) {
+        iconList.value = iconListJson.filter(name => name.indexOf(val) > -1)
+      } else {
+        iconList.value = iconListJson
+      }
+    })
 </script>
 <style lang="scss" scoped>
 .icon-ul {

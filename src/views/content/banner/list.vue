@@ -15,7 +15,7 @@
           placeholder="所属店铺"
           clearable
           style="width: 180px">
-          <el-option :key="0" label="公共所有" v-if="!this.$store.getters.storeId" :value="0" />
+          <el-option :key="0" label="公共所有" v-if="!storeId" :value="0" />
           <el-option v-for="storeInfo in storeList" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
         </el-select>
       </el-form-item>
@@ -105,7 +105,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="标题" prop="title">
@@ -120,7 +120,7 @@
                 v-model="form.storeId"
                 style="width: 260px"
                 placeholder="所属店铺，空则为公共所有">
-                <el-option :key="0" label="公共所有" v-if="!this.$store.getters.storeId" :value="0" />
+                <el-option :key="0" label="公共所有" v-if="!storeId" :value="0" />
                 <el-option v-for="storeInfo in storeList" :key="storeInfo.id" :label="storeInfo.name" :value="storeInfo.id" />
               </el-select>
             </el-form-item>
@@ -158,10 +158,10 @@
                    :headers="uploadHeader"
                    :on-success="handleUploadSuccess">
                 <img
-                  v-if="this.form.image"
-                  :src="imagePath + this.form.image"
+                  v-if="form.image"
+                  :src="imagePath + form.image"
                   class="list-img" />
-                <i v-if="!this.form.image" class="el-icon-plus"></i>
+                <i v-if="!form.image" class="el-icon-plus"></i>
               </el-upload>
             </el-form-item>
           </el-col>
@@ -200,183 +200,193 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
+import { getName } from '@/utils/fuint'
+
 import { getToken } from '@/utils/auth';
 import { getBannerList, updateBannerStatus, getBannerInfo, saveBanner } from "@/api/banner";
-export default {
-  name: "BannerList",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 图片根目录
-      imagePath: "",
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'sort', order: 'ascending'},
-      // 表单参数
-      form: { id: '', title: '', storeId: 0,  status: "A", sort: 0 },
-      // 店铺列表
-      storeList: [],
-      // 展示位置列表
-      positionList: [],
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      // 隐藏上传
-      hideUpload: false,
-      // 上传文件列表
-      uploadFiles: [],
-      uploadHeader: { 'Access-Token' : getToken() },
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'BannerList' })
+
+
+const loading = ref(true)
+
+const title = ref("")
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const showSearch = ref(true)
+
+const imagePath = ref("")
+
+const total = ref(0)
+
+const list = reactive([])
+
+const open = ref(false)
+
+const defaultSort = reactive({prop: 'sort', order: 'ascending'})
+
+const form = reactive({ id: '', title: '', storeId: 0,  status: "A", sort: 0 })
+
+const storeList = reactive([])
+
+const positionList = reactive([])
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const hideUpload = ref(false)
+
+const uploadFiles = reactive([])
+
+const uploadHeader = reactive({ 'Access-Token' : getToken() })
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         title: '',
         storeId: '',
         status: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         title: [
           { required: true, message: "标题不能为空", trigger: "blur" },
           { min: 2, max: 200, message: '标题长度必须介于2 和 200 之间', trigger: 'blur' }
         ],
         image: [{ required: true, message: "请上传图片", trigger: "blur" }]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getBannerList(this.queryParams).then( response => {
-          this.list = response.data.dataList.content;
-          this.total = response.data.dataList.totalElements;
-          this.imagePath = response.data.imagePath;
-          this.storeList = response.data.storeList;
-          this.positionList = response.data.positionList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getBannerList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.dataList.content || []));
+          total.value = response.data.dataList.totalElements;
+          imagePath.value = response.data.imagePath;
+          storeList.length = 0; storeList.push(...(response.data.storeList || []));
+          positionList.length = 0; positionList.push(...(response.data.positionList || []));
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
         return updateBannerStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增轮播图";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleAdd() {
+      reset();
+      open.value = true;
+      title.value = "新增轮播图";
+    }
+
+function reset() {
+      Object.assign(form, {
         id: "",
         title: "",
         status: "A",
         image: "",
         description: ""
-      };
-      this.uploadFiles = []
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      });
+      uploadFiles.length = 0
+      formRef.value?.resetFields();
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-              saveBanner(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.id) {
+              saveBanner(form).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveBanner(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
+              saveBanner(form).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
+    }
+
+function handleUpdate(row) {
+      reset();
+      const id = row.id || ids;
       getBannerInfo(id).then(response => {
-        this.form = response.data.bannerInfo;
-        this.uploadFiles = [{ url: response.data.imagePath + this.form.image, status: 'finished'}]
-        this.open = true;
-        this.title = "编辑轮播图";
+        Object.assign(form, response.data.bannerInfo);
+        uploadFiles.length = 0; uploadFiles.push(...[{ url: response.data.imagePath + form.image, status: 'finished'}])
+        open.value = true;
+        title.value = "编辑轮播图";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    }
+
+function handleDelete(row) {
       const name = row.title
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
+      modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
         return updateBannerStatus(row.id, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    handleUploadSuccess(file) {
-      this.form.image = file.data.fileName
     }
-  }
-};
+
+function handleUploadSuccess(file) {
+      form.image = file.data.fileName
+    }
+
+getList();
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

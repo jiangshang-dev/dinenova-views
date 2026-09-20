@@ -9,7 +9,7 @@
     <div class="diy-phone">
       <Model
         v-if="!loading"
-        ref="model"
+        ref="modelRef"
         :form="form"
         :diyData="diyData"
       ></Model>
@@ -64,139 +64,132 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getWxHomeTemplate, saveHomeTemplate } from "@/api/template";
 import { deepClone } from "@/utils/base.js";
 import Type from "./diy/Type.vue";
 import Model from "./diy/Model.vue";
 import Params from "./diy/Params.vue";
-export default {
-  props: ["storeId"],
-  components: {
-    /*组件类别*/
-    Type,
-    /*组件信息*/
-    Model,
-    /*参数信息*/
-    Params,
+import { ref, reactive, watch, onMounted, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'home' })
+
+const props = defineProps(['storeId'])
+
+const modelRef = ref(null)
+
+const state = reactive({
+  /*是否正在加载*/
+  loading: true,
+  /*默认数据*/
+  defaultData: {},
+  /*组件数据列表*/
+  diyData: {
+    items: [],
   },
-  data() {
-    return {
-      /*是否正在加载*/
-      loading: true,
-      /*默认数据*/
-      defaultData: {},
-      /*组件数据列表*/
-      diyData: {
-        items: [],
-      },
-      /*表单对象*/
-      form: {
-        type: "",
-        /*当前选中*/
-        curItem: {},
-        /*当前选中的元素（下标）*/
-        selectedIndex: -1,
-        /* 首页背景色 */
-        bgcolor: "#f2f2f2",
-      },
-      dialogFormVisible: false,
-      store_Id: 0
-    };
+  /*表单对象*/
+  form: {
+    type: "",
+    /*当前选中*/
+    curItem: {},
+    /*当前选中的元素（下标）*/
+    selectedIndex: -1,
+    /* 首页背景色 */
+    bgcolor: "#f2f2f2",
   },
-  watch: {
-    "form.bgcolor"(val) {
-      if (this.diyData) {
-        this.diyData.bgcolor = val || "#f2f2f2";
+  dialogFormVisible: false,
+  store_Id: 0
+})
+const { loading, defaultData, diyData, form, dialogFormVisible, store_Id } = toRefs(state)
+
+function getData(type, id) {
+  store_Id.value = id;
+  getWxHomeTemplate(id, type)
+    .then((res) => {
+      defaultData.value = res.data.defaultData || {};
+      diyData.value = res.data.jsonData.pageDataJson || { items: [], bgcolor: "#f2f2f2" };
+      if (!Array.isArray(diyData.value.items)) {
+        diyData.value.items = [];
       }
-    },
-  },
-  created() {
-    this.getData("1",this.storeId);
-  },
-  methods: {
-    /*获取列表*/
-    getData(type, id) {
-      let self = this;
-      this.store_Id = id;
-      getWxHomeTemplate(id, type)
-        .then((res) => {
-          self.defaultData = res.data.defaultData || {};
-          self.diyData = res.data.jsonData.pageDataJson || { items: [], bgcolor: "#f2f2f2" };
-          if (!Array.isArray(self.diyData.items)) {
-            self.diyData.items = [];
-          }
-          self.form.bgcolor = self.diyData.bgcolor || "#f2f2f2";
-          self.diyData.bgcolor = self.form.bgcolor;
-          self.loading = false;
-        })
-        .catch((error) => {
-          self.loading = false;
-        });
-    },
+      form.value.bgcolor = diyData.value.bgcolor || "#f2f2f2";
+      diyData.value.bgcolor = form.value.bgcolor;
+      loading.value = false;
+    })
+    .catch(() => {
+      loading.value = false;
+    });
+}
 
-    /*新增Diy组件*/
-    onAddItem: function (key) {
-      // 复制默认diy组件数据
-      let item = deepClone(this.defaultData[key]),
-        cur_index = 0;
-      if (this.form.selectedIndex < 0) {
-        cur_index = 0;
-        this.diyData.items.unshift(item);
-      } else {
-        cur_index = this.form.selectedIndex + 1;
-        this.diyData.items.splice(cur_index, 0, item);
-      }
+function onAddItem(key) {
+  // 复制默认diy组件数据
+  let item = deepClone(defaultData.value[key]),
+    cur_index = 0;
+  if (form.value.selectedIndex < 0) {
+    cur_index = 0;
+    diyData.value.items.unshift(item);
+  } else {
+    cur_index = form.value.selectedIndex + 1;
+    diyData.value.items.splice(cur_index, 0, item);
+  }
 
-      // 编辑当前选中的元素
-      this.$refs.model.onEditer(cur_index);
-    },
+  // 编辑当前选中的元素
+  modelRef.value?.onEditer(cur_index);
+}
 
-    onBgcolorChange(val) {
-      this.form.bgcolor = val || "#f2f2f2";
-      this.diyData.bgcolor = this.form.bgcolor;
-    },
+function onBgcolorChange(val) {
+  form.value.bgcolor = val || "#f2f2f2";
+  diyData.value.bgcolor = form.value.bgcolor;
+}
 
-    /*查看上一次*/
-    didClickHistory() {
-      this.getData("3",this.store_Id);
-      this.form.selectedIndex = -1;
-    },
+function didClickHistory() {
+  getData("3", store_Id.value);
+  form.value.selectedIndex = -1;
+}
 
-    /*查看缓存*/
-    didClickStorage() {
-      this.getData("0",this.store_Id);
-      this.form.selectedIndex = -1;
-    },
+function didClickStorage() {
+  getData("0", store_Id.value);
+  form.value.selectedIndex = -1;
+}
 
-    /*上架*/
-    submit() {
-      this.form.type = "";
-      this.dialogFormVisible = true;
-    },
+function submit() {
+  form.value.type = "";
+  dialogFormVisible.value = true;
+}
 
-    dialogSubmit() {
-      let self = this;
-      if (!this.form.type) {
-        this.$modal.msgWarning("先选择需要发布的位置！");
-        return;
-      }
+function dialogSubmit() {
+  if (!form.value.type) {
+    modal.msgWarning("先选择需要发布的位置！");
+    return;
+  }
 
-      this.dialogFormVisible = false;
-      this.diyData.bgcolor = this.form.bgcolor;
-      const data = JSON.stringify({
-        type: this.form.type,
-        storeId: this.store_Id,
-        params: this.diyData,
-      });
-      saveHomeTemplate(data).then((response) => {
-        this.$modal.msgSuccess("恭喜你，保存成功");
-        self.getData(this.form.type + "", this.store_Id);
-        self.form.selectedIndex = -1;
-      });
-    },
-  },
-};
+  dialogFormVisible.value = false;
+  diyData.value.bgcolor = form.value.bgcolor;
+  const data = JSON.stringify({
+    type: form.value.type,
+    storeId: store_Id.value,
+    params: diyData.value,
+  });
+  saveHomeTemplate(data).then(() => {
+    modal.msgSuccess("恭喜你，保存成功");
+    getData(form.value.type + "", store_Id.value);
+    form.value.selectedIndex = -1;
+  });
+}
+
+onMounted(() => {
+  if (props.storeId) {
+    getData("1", props.storeId);
+  }
+})
+
+watch(() => props.storeId, (id) => {
+  if (id) {
+    getData("1", id);
+  }
+})
+
+defineExpose({ getData, onAddItem })
 </script>
 
 <style scoped lang="scss">

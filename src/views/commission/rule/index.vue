@@ -72,10 +72,10 @@
       :total="total"
       v-model:page="page"
       v-model:limit="pageSize"
-      @pagination="getCommissionRuleList" />
+      @pagination="loadCommissionRuleList" />
     <!-- 添加或修改方案对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="1100px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="126px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="126px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="方案名称" prop="name">
@@ -218,7 +218,7 @@
         :total="totalGoods"
         v-model:page="params.page"
         v-model:limit="params.pageSize"
-        @pagination="getGoodsList" />
+        @pagination="loadSelectGoodsList" />
       <template #footer><div class="dialog-footer">
         <el-button type="primary" @click="selectOk">确定</el-button>
         <el-button @click="openSelect=false">取消</el-button>
@@ -226,41 +226,73 @@
     </el-dialog>
   </div>
 </template>
-<script>
-  import { getCommissionRuleList, removeCommissionRule, getCommissionRuleInfo, saveCommissionRule } from "@/api/commission/rule";
-  import { getGoodsList } from "@/api/goods";
-  import { searchStore } from "@/api/store";
-  export default {
-    name: 'ruleIndex',
-    data() {
-      return {
-        loading: false,
-        multipleSelection: [],
-        uploadAction: import.meta.env.VUE_APP_SERVER_URL + '/backendApi/file/upload',
-        page: 1, //初始页
-        pageSize: 10, //每页的数据
-        total: 0,
-        list: [],
-        selectGoodList: [],
-        totalGoods: 0,
-        storeOptions: [],
-        typeList: [],
-        name: '',
-        type: '',
-        target: '',
-        title: '',
-        open: false,
-        openSelect: false,
-        visitorVal: '',
-        memberVal: '',
-        percent: 'percent',
-        params:  {
+<script setup>
+import { nextTick, reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { ElMessageBox } from 'element-plus'
+
+import { ElMessage } from 'element-plus'
+
+import { parseTime } from '@/utils/fuint'
+
+import { getCommissionRuleList as fetchCommissionRuleList, removeCommissionRule, getCommissionRuleInfo, saveCommissionRule } from '@/api/commission/rule'
+import { getGoodsList as fetchGoodsList } from '@/api/goods'
+import { searchStore } from "@/api/store";
+
+
+defineOptions({ name: 'ruleIndex' })
+
+
+const loading = ref(false)
+
+const multipleSelection = reactive([])
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + '/backendApi/file/upload')
+
+const page = ref(1)
+
+const pageSize = ref(10)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const selectGoodList = reactive([])
+
+const totalGoods = ref(0)
+
+const storeOptions = reactive([])
+
+const typeList = reactive([])
+
+const name = ref('')
+
+const type = ref('')
+
+const target = ref('')
+
+const title = ref('')
+
+const open = ref(false)
+
+const openSelect = ref(false)
+
+const visitorVal = ref('')
+
+const memberVal = ref('')
+
+const percent = ref('percent')
+
+const params = reactive({
           page: 1,
           pageSize: 10,
           type: '',
           keyword: ''
-        },
-        form: {
+        })
+
+const form = reactive({
           id: '',
           storeIdList: [],
           name: '',
@@ -270,125 +302,128 @@
           updateTime: '',
           status: '',
           detailList: []
-        },
-        rules: {
+        })
+
+const rules = reactive({
           storeIdList: [{required: true, message: '请选择方案适用门店', trigger: 'blur'}],
           name: [{required: true, message: '请输入方案名称', trigger: 'blur'}],
           target: [{required: true, message: '请选择方案对象', trigger: 'blur'}],
           type: [{required: true, message: '请选择方案类型', trigger: 'blur'}]
-        }
-      }
-    },
-    methods: {
-      // 获取方案列表
-      getCommissionRuleList() {
+        })
+
+const formRef = ref(null)
+
+const multipleTable = ref(null)
+
+function loadCommissionRuleList() {
         let params = {
-          page: this.page,
-          pageSize: this.pageSize,
-          name: this.name,
-          target: this.target,
-          type: this.type
+          page: page.value,
+          pageSize: pageSize.value,
+          name: name.value,
+          target: target.value,
+          type: type.value
         };
-        getCommissionRuleList(params).then(response => {
-            this.list = response.data.paginationResponse.content;
-            this.total = response.data.paginationResponse.totalElements;
-            this.typeList = response.data.typeList;
+        fetchCommissionRuleList(params).then(response => {
+            list.splice(0, list.length, ...response.data.paginationResponse.content);
+            total.value = response.data.paginationResponse.totalElements;
+            typeList.splice(0, typeList.length, ...response.data.typeList);
           }
         );
-      },
-      // 获取商品列表
-      getGoodsList() {
-        getGoodsList(this.params).then(response => {
-            this.selectGoodList = response.data.paginationResponse.content;
-            this.totalGoods = response.data.paginationResponse.totalElements;
+      }
+
+function loadSelectGoodsList() {
+        fetchGoodsList(params).then(response => {
+            selectGoodList.splice(0, selectGoodList.length, ...response.data.paginationResponse.content);
+            totalGoods.value = response.data.paginationResponse.totalElements;
             //数据回显
-            this.selectGoodList.forEach(item => {
-              this.form.detailList.forEach(item2 => {
+            selectGoodList.forEach(item => {
+              form.detailList.forEach(item2 => {
                 if (item2.goodsId == item.id) {
                     // 满足条件选中
-                    this.$refs.multipleTable.toggleRowSelection(item);
+                    multipleTable.value.toggleRowSelection(item);
                 }
               })
             })
           }
         );
-      },
-      // 修改方案类型
-      changeType() {
-        this.form.detailList = [];
-      },
-      // 方案类型
-      typeFormat: function (row, column) {
+      }
+
+function changeType() {
+        form.detailList = [];
+      }
+
+function typeFormat(row, column) {
         let val = row[column.property];
         let name = val;
-        this.typeList.forEach(function(type){
+        typeList.forEach(function(type){
           if (type.key == val) {
-              name = type.name;
+              name.value = type.name;
           }
         })
         return name;
-      },
-      dataFormatTarget: function (row, column) {
+      }
+
+function dataFormatTarget(row, column) {
         // staff：员工提成；member=会员分销
         let val = row[column.property];
         if (val == 'staff') {return '员工提成'}
         if (val == 'member') {return '会员分销'}
         return val;
-      },
-      // 获取店铺列表
-      getStoreList() {
+      }
+
+function getStoreList() {
         searchStore().then(response => {
-            this.storeOptions = response.data.storeList;
+            storeOptions.splice(0, storeOptions.length, ...response.data.storeList);
           }
         )
-      },
-      // 查询方案
-      handleQuery() {
-        this.getCommissionRuleList();
-      },
-      // 新增方案
-      handleAdd(id) {
-        this.title = "新增方案"
-        this.form.id = '';
-        this.form.storeIdList = [];
-        this.form.detailList = [];
-        this.form.name = '';
-        this.form.type = 'goods';
-        this.form.createTime = '';
-        this.form.updateTime = '';
-        this.form.status = '';
-        this.open = true;
+      }
+
+function handleQuery() {
+        loadCommissionRuleList();
+      }
+
+function handleAdd(id) {
+        title.value = "新增方案"
+        form.id = '';
+        form.storeIdList = [];
+        form.detailList = [];
+        form.name = '';
+        form.type = 'goods';
+        form.createTime = '';
+        form.updateTime = '';
+        form.status = '';
+        open.value = true;
         if (id) {
-          this.title = "修改方案"
+          title.value = "修改方案"
           getCommissionRuleInfo(id).then(r => {
-              this.form = r.data.commissionRule;
+              Object.assign(form, r.data.commissionRule);
             }
           );
         }
-      },
-      // 提交按钮
-      submitForm: function () {
-        this.$refs["form"].validate(valid => {
+      }
+
+function submitForm() {
+        formRef.value.validate(valid => {
           if (valid) {
-            if (!this.form.id) {
-               saveCommissionRule(this.form).then(r => {
-                  this.$modal.msgSuccess("修改成功");
-                  this.open = false;
-                  this.handleQuery();
+            if (!form.id) {
+               saveCommissionRule(form).then(r => {
+                  modal.msgSuccess("修改成功");
+                  open.value = false;
+                  handleQuery();
                });
             } else {
-              saveCommissionRule(this.form).then(r => {
-                  this.$modal.msgSuccess("新增成功");
-                  this.open = false;
-                  this.handleQuery();
+              saveCommissionRule(form).then(r => {
+                  modal.msgSuccess("新增成功");
+                  open.value = false;
+                  handleQuery();
               });
             }
           }
         });
-      },
-      // 删除方案
-      handleDelete(row) {
-        this.$confirm('确认删除该方案吗?', '提示信息', {
+      }
+
+function handleDelete(row) {
+        ElMessageBox.confirm('确认删除该方案吗?', '提示信息', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
@@ -396,48 +431,50 @@
           let id = row.id;
           removeCommissionRule({ id: id, status: 'D' }).then(r => {
               if (r.code == 200) {
-                this.$message({ // 成功
+                ElMessage({ // 成功
                   type: 'success',
                   message: '操作成功'
                 })
-                this.getCommissionRuleList();
+                loadCommissionRuleList();
               }
             }
           )
         }).catch(() => {
         });
-      },
-      // 添加提成方案详情
-      addRuleItem() {
-        if (!this.form.type) {
-            this.$modal.msgWarning("请先选择提成方案类别");
+      }
+
+function addRuleItem() {
+        if (!form.type) {
+            modal.msgWarning("请先选择提成方案类别");
             return;
         }
-        this.openSelect = true;
-        this.multipleSelection = [];//清空已选择的列表
+        openSelect.value = true;
+        multipleSelection.length = 0; // 清空已选择的列表
         // 清空所有选中
-        this.$nextTick(() => {
-          this.$refs.multipleTable.clearSelection();
+        nextTick(() => {
+          multipleTable.value.clearSelection();
         })
-        this.getGoodsList();
-      },
-      // 删除提成方案商品服务
-      removeRule(goodId){
-        this.form.detailList = this.form.detailList.filter(item => {
+        loadSelectGoodsList();
+      }
+
+function removeRule(goodId) {
+        form.detailList = form.detailList.filter(item => {
             return item.goodsId != goodId;
         })
-      },
-      getRowKeys(row) {
+      }
+
+function getRowKeys(row) {
         return row.id;
-      },
-      handleSelectionChange(val) {
-        this.multipleSelection = val;
-      },
-      // 确定选择的商品服务
-      selectOk() {
+      }
+
+function handleSelectionChange(val) {
+        multipleSelection.length = 0; multipleSelection.push(...(val || []));
+      }
+
+function selectOk() {
         let selectList = [];
         // 1.转换已经选择的商品
-        this.multipleSelection.forEach(item => {
+        multipleSelection.forEach(item => {
             let detailObj = {
               goodsId: item.id,//商品ID
               priceType: "1",//价格类型 1：标准价(原价) 2：会员价
@@ -450,22 +487,19 @@
               logo: item.logo//商品图片
             }
             // 2.比对现有已选择的商品
-            this.form.detailList.forEach(item2 => {
+            form.detailList.forEach(item2 => {
               if (item2.goodsId == item.id) {
                   detailObj = item2;
               }
             })
             selectList.push(detailObj);
         })
-        this.form.detailList = selectList;
-        this.openSelect = false;
+        form.detailList = selectList;
+        openSelect.value = false;
       }
-    },
-    created: function () {
-      this.getCommissionRuleList();
-      this.getStoreList();
-    }
-  }
+
+loadCommissionRuleList();
+getStoreList();
 </script>
 <style scoped lang="scss">
   select {

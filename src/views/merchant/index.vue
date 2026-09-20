@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
+    <el-form :model="queryParams" ref="queryFormRef" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="商户号" prop="no">
         <el-input
           v-model="queryParams.no"
@@ -40,7 +40,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table ref="tables" v-loading="loading" :data="list" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+    <el-table ref="tablesRef" v-loading="loading" :data="list" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
       <el-table-column label="ID" prop="id"  width="55" />
       <el-table-column label="商户号" align="center" prop="no" />
       <el-table-column label="商户名称" align="center" prop="name" />
@@ -88,7 +88,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="180px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="180px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="商户号" prop="no">
@@ -214,14 +214,22 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { getToken } from '@/utils/auth';
 import { getMerchantList, updateMerchantStatus, getMerchantInfo, saveMerchant } from "@/api/merchant";
-export default {
-  name: "MerchantList",
-  data() {
-    return {
-      // 遮罩层
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+import { addDateRange } from '@/utils/fuint'
+
+defineOptions({ name: 'MerchantList' })
+
+const queryFormRef = ref(null)
+const formRef = ref(null)
+const tablesRef = ref(null)
+const dateRange = ref([])
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 标题
       title: "",
@@ -274,65 +282,76 @@ export default {
           { min: 2, max: 30, message: '商户名称长度必须介于 2 和 50 之间', trigger: 'blur' }
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询日志
-    getList() {
-      this.loading = true;
-      getMerchantList(this.addDateRange(this.queryParams, this.dateRange)).then( response => {
-          this.list = response.data.dataList.content;
-          this.total = response.data.dataList.totalElements;
-          this.imagePath = response.data.imagePath;
-          this.typeOptions = response.data.typeList;
-          this.loading = false;
+})
+const { loading, title, ids, multiple, showSearch, total, list, open, defaultSort, typeOptions, form, uploadAction, hideUpload, uploadFiles, uploadHeader, imagePath, queryParams, rules } = toRefs(state)
+
+function getList() {
+
+      loading.value = true;
+      getMerchantList(addDateRange(queryParams.value, dateRange.value)).then( response => {
+          list.value = response.data.dataList.content;
+          total.value = response.data.dataList.totalElements;
+          imagePath.value = response.data.imagePath;
+          typeOptions.value = response.data.typeList;
+          loading.value = false;
       });
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      tablesRef.value?.sort(defaultSort.value.prop, defaultSort.value.order)
+      handleQuery();
+    
+}
+
+function handleStatusChange(row) {
+
       let text = row.status == "1" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"商户吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.name + '"商户吗？').then(function() {
          return updateMerchantStatus(row.id, row.status);
       }).then(() => {
-         this.$modal.msgSuccess(text + "成功");
+         modal.msgSuccess(text + "成功");
       }).catch(function() {
          row.status = row.status === "A" ? "A" : "D";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id);
-      this.multiple = !selection.length;
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增商户";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id);
+      multiple.value = !selection.length;
+    
+}
+
+function handleSortChange(column, prop, order) {
+
+      queryParams.value.orderByColumn = column.prop;
+      queryParams.value.isAsc = column.order;
+      getList();
+    
+}
+
+function handleAdd() {
+
+      reset();
+      open.value = true;
+      title.value = "新增商户";
+    
+}
+
+function reset() {
+
+      form.value = {
         id: "",
         no: "",
         name: "",
@@ -345,59 +364,71 @@ export default {
         description: "",
         status: "A"
       };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      formRef.value?.resetFields();
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-              saveMerchant(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.value.id) {
+              saveMerchant(form.value).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveMerchant(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
+              saveMerchant(form.value).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      const app = this;
-      app.reset();
-      const id = row.id || this.ids;
+    
+}
+
+function handleUpdate(row) {
+
+      ;
+      reset();
+      const id = row.id || ids.value;
       getMerchantInfo(id).then(response => {
-        app.form = response.data.merchantInfo;
-        app.open = true;
-        app.title = "编辑商户";
+        form.value = response.data.merchantInfo;
+        open.value = true;
+        title.value = "编辑商户";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const name = row.name || this.id;
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      const name = row.name || ids.value;
+      modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
         return updateMerchantStatus(row.id, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    handleUploadSuccess(file) {
-      this.form.logo = file.data.fileName;
-    }
-  }
-};
+    
+}
+
+function handleUploadSuccess(file) {
+
+      form.value.logo = file.data.fileName;
+    
+}
+
+getList()
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

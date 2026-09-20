@@ -298,6 +298,68 @@
     position: relative;
     float: right;
 }
+
+/* 装修编辑器沿用旧后台 common.css 的工具类 */
+.red {
+  color: red;
+}
+.gray3 {
+  color: #333333;
+}
+.gray6 {
+  color: #666666;
+}
+.gray9 {
+  color: #999999;
+}
+.f12 {
+  font-size: 12px;
+}
+.f14 {
+  font-size: 14px;
+}
+.f16 {
+  font-size: 16px;
+}
+.mb16 {
+  margin-bottom: 16px;
+}
+.pb16 {
+  padding-bottom: 16px;
+}
+.pl56 {
+  padding-left: 56px;
+}
+.d-c-c {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.d-s-c {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+.d-b-c {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.d-c {
+  flex-direction: column;
+}
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+.ww100 {
+  width: 100%;
+}
+.form-subtitle {
+  padding-top: 18px;
+  padding-bottom: 18px;
+  padding-left: 20px;
+}
 .no-border {
   border: none;
 }

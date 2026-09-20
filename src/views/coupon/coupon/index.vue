@@ -405,8 +405,8 @@
                  :headers="uploadHeader"
                  :show-file-list="false">
                 <img
-                  v-if="this.form.image"
-                  :src="imagePath + this.form.image"
+                  v-if="form.image"
+                  :src="imagePath + form.image"
                   class="list-img" />
                  <i class="el-icon-plus"></i>
               </el-upload>
@@ -438,7 +438,7 @@
 
     <!--发券对话框 start-->
     <el-dialog title="发放卡券" v-model="openSendCouponDialog" class="common-dialog" width="800px" append-to-body>
-      <el-form ref="sendForm" :model="sendForm" :rules="sendFormRules" label-width="120px">
+      <el-form ref="sendFormRef" :model="sendForm" :rules="sendFormRules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="卡券名称：" prop="couponName">
@@ -490,103 +490,87 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { getName } from '@/utils/fuint'
+
 import FuintQrCode from '@/components/Fuint/QrCode';
 import { getToken } from '@/utils/auth';
 import { getCouponList, updateCouponStatus, getCouponInfo, saveCoupon, deleteCoupon, sendCoupon } from "@/api/coupon/coupon";
 import { getAllGroupList } from "@/api/coupon/group";
-import { getTotalMember } from "@/api/statistic";
+import { getTotalMember as getTotalMemberApi } from "@/api/statistic";
 import { parseTime } from "@/utils/fuint";
 
-// 初始表单
 const initForm = { id: '', type: 'C', groupId: '', gradeIds: '', name: '', expireType: 'fix', expireTime: '', beginTime: '', endTime: '', applyGoods: 'allGoods', isGive: '0', amount: '', goodsIds: '',
                    outRule: '', inRule: '', inRuleForPreStore: '', sendNum: '1', total: '', limitNum: '', sendWay: 'backend', point: '', receiveCode: '',
                    useFor: '', storeIds: '', image: '/static/defaultImage/coupon.png', description: '', remarks: '', outRuleForTimer: '', status: "A" };
 
-export default {
-  name: "CouponIndex",
-  components: {
-    FuintQrCode
-  },
-  data() {
-    const storeItemValid = (rule, value, callback) => {
-      // 储值卡验证
-      if (this.form.type == 'P') {
-        if (this.storeItem.length > 0) {
-            let validCount = 0;
-            this.storeItem.forEach(function(item) {
-              if (item.storeAmount == '' || isNaN(parseFloat(item.storeAmount)) || item.giveAmount == '' || isNaN(parseFloat(item.giveAmount))) {
-                  validCount++;
-              }
-            })
-            if (validCount > 0) {
-                callback(new Error("请输入预存规则"));
-            } else {
-                callback();
-            }
-        } else {
-             callback(new Error("请添加预存规则"));
-        }
-      }
-    };
-    return {
-      // 二维码
-      qr: null,
-      // 二维码对话框
-      openQrCode: false,
-      // 遮罩层
-      loading: true,
-      sendLoading: false,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 图片根目录
-      imagePath: "",
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 卡券类别列表
-      typeList: [],
-      // 分组列表
-      groupList: [],
-      // 分组选项
-      groupOptions: [],
-      // 等级选项
-      gradeOptions: [],
-      // 店铺列表
-      storeList: [],
-      // 状态列表
-      statusList: [],
-      // 卡券使用专项列表
-      couponUseForList: [],
-      // 是否显示弹出层
-      open: false,
-      // 显示发券对话框
-      openSendCouponDialog: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: initForm,
-      goodsIds: '',
-      // 预存规则
-      storeItem: [ { storeAmount: '', giveAmount: '' }],
-      // 上传地址
-      uploadAction: import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload',
-      // 隐藏上传
-      hideUpload: false,
-      uploadHeader: { 'Access-Token' : getToken() },
-      // 选择会员对话框
-      openUserSelect: false,
-      // 上传文件列表
-      uploadFiles: [],
-      // 查询参数
-      queryParams: {
+
+defineOptions({ name: 'CouponIndex' })
+
+
+const qr = ref(null)
+
+const openQrCode = ref(false)
+
+const loading = ref(true)
+
+const sendLoading = ref(false)
+
+const title = ref("")
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const showSearch = ref(true)
+
+const imagePath = ref("")
+
+const total = ref(0)
+
+const list = reactive([])
+
+const typeList = reactive([])
+
+const groupList = reactive([])
+
+const groupOptions = reactive([])
+
+const gradeOptions = reactive([])
+
+const storeList = reactive([])
+
+const statusList = reactive([])
+
+const couponUseForList = reactive([])
+
+const open = ref(false)
+
+const openSendCouponDialog = ref(false)
+
+const defaultSort = reactive({prop: 'createTime', order: 'descending'})
+
+const form = ref(initForm)
+
+const goodsIds = ref('')
+
+const storeItem = reactive([ { storeAmount: '', giveAmount: '' }])
+
+const uploadAction = ref(import.meta.env.VUE_APP_SERVER_URL + 'backendApi/file/upload')
+
+const hideUpload = ref(false)
+
+const uploadHeader = reactive({ 'Access-Token' : getToken() })
+
+const openUserSelect = ref(false)
+
+const uploadFiles = reactive([])
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         id: '',
@@ -594,9 +578,9 @@ export default {
         name: '',
         type: '',
         status: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         type: [
           { required: true, message: "请选择卡券类型", trigger: "blur" },
         ],
@@ -635,235 +619,238 @@ export default {
         storeItem: [
           { required: true, validator: storeItemValid, trigger: 'change' },
         ]
-      },
-      totalMember: 0,
-      sendForm: { couponId: '', couponName: '', num: '', memberIds: [], object: 'part', remark: '' },
-      sendFormRules: {
+      })
+
+const totalMember = ref(0)
+
+const sendForm = reactive({ couponId: '', couponName: '', num: '', memberIds: [], object: 'part', remark: '' })
+
+const sendFormRules = reactive({
         num: [
             { required: true, message: "请输入发放数量", trigger: "blur" },
             { pattern: /^[0-9]{1,10}$/, message: `请输入1-10位数字`, trigger: 'blur' }
         ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-    this.getGroupList();
-    this.getTotalMember();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getCouponList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.groupList = response.data.groupList;
-          this.storeList = response.data.storeList;
-          this.imagePath = response.data.imagePath;
-          this.typeList = response.data.typeList;
-          this.statusList = response.data.statusList;
-          this.gradeOptions = response.data.gradeList;
-          this.couponUseForList = response.data.couponUseForList;
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+const sendFormRef = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getCouponList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          groupList.length = 0; groupList.push(...(response.data.groupList || []));
+          storeList.length = 0; storeList.push(...(response.data.storeList || []));
+          imagePath.value = response.data.imagePath;
+          typeList.length = 0; typeList.push(...(response.data.typeList || []));
+          statusList.length = 0; statusList.push(...(response.data.statusList || []));
+          gradeOptions.length = 0; gradeOptions.push(...(response.data.gradeList || []));
+          couponUseForList.length = 0; couponUseForList.push(...(response.data.couponUseForList || []));
+          loading.value = false;
         }
       );
-    },
-    // 获取会员总数
-    getTotalMember() {
-      getTotalMember().then(response => {
-          this.totalMember = response.data.totalMember;
+    }
+
+function getTotalMember() {
+      getTotalMemberApi().then(response => {
+          totalMember.value = response.data.totalMember;
         }
       );
-    },
-    // 获取分组列表
-    getGroupList() {
-      this.loading = true;
+    }
+
+function getGroupList() {
+      loading.value = true;
       getAllGroupList().then( response => {
-          this.groupOptions = response.data.groupList;
-          this.loading = false;
+          groupOptions.length = 0; groupOptions.push(...(response.data.groupList || []));
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
+      modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
         return updateCouponStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增卡券";
-    },
-    // 表单重置
-    reset() {
-      this.resetForm("form");
-      this.form = initForm;
-      this.goodsIds = '';
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      const app = this;
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleAdd() {
+      reset();
+      open.value = true;
+      title.value = "新增卡券";
+    }
+
+function reset() {
+      formRef.value?.resetFields();
+      form.value = initForm;
+      goodsIds.value = '';
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function submitForm() {
+      
       app.$refs["form"].validate(valid => {
         if (valid) {
-          app.form.storeIds = app.form.storeIds ? app.form.storeIds.join(",") : '';
-          app.form.gradeIds = app.form.gradeIds ? app.form.gradeIds.join(",") : '';
-          app.form.goodsIds = app.goodsIds;
+          form.value.storeIds = form.value.storeIds ? form.value.storeIds.join(",") : '';
+          form.value.gradeIds = form.value.gradeIds ? form.value.gradeIds.join(",") : '';
+          form.value.goodsIds = goodsIds.value;
           // 预存规则
-          if (app.form.type == 'P') {
-              app.form.inRule = '';
-              app.storeItem.forEach(function(rule){
-                 if (app.form.inRule) {
-                     app.form.inRule = app.form.inRule + ',' + rule.storeAmount + '_' + rule.giveAmount;
+          if (form.value.type == 'P') {
+              form.value.inRule = '';
+              storeItem.forEach(function(rule){
+                 if (form.value.inRule) {
+                     form.value.inRule = form.value.inRule + ',' + rule.storeAmount + '_' + rule.giveAmount;
                  } else {
-                     app.form.inRule = rule.storeAmount + '_' + rule.giveAmount;
+                     form.value.inRule = rule.storeAmount + '_' + rule.giveAmount;
                  }
               })
           }
-          if (parseInt(app.form.id) > 0) {
-              saveCoupon(app.form).then(response => {
-                app.$modal.msgSuccess("修改成功");
-                app.open = false;
-                app.getList();
+          if (parseInt(form.value.id) > 0) {
+              saveCoupon(form.value).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveCoupon(app.form).then(response => {
-                app.$modal.msgSuccess("新增成功");
-                app.open = false;
-                app.getList();
+              saveCoupon(form.value).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         } else {
-            app.$modal.msgError("请先完善表单数据项");
+            modal.msgError("请先完善表单数据项");
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      const app = this;
-      app.reset();
-      const id = row.id || this.ids;
+    }
+
+function handleUpdate(row) {
+      
+      reset();
+      const id = row.id || ids;
       getCouponInfo(id).then(response => {
-        app.form = response.data.couponInfo;
-        app.form.isGive = app.form.isGive == true ? '1' : '0';
-        app.form.beginTime = parseTime(app.form.beginTime);
-        app.form.endTime = parseTime(app.form.endTime);
-        app.goodsIds = response.data.goodsIds;
-        if (app.form.storeIds && app.form.storeIds.length > 0) {
-            app.form.storeIds = app.form.storeIds.split(",");
+        form.value = response.data.couponInfo;
+        form.value.isGive = form.value.isGive == true ? '1' : '0';
+        form.value.beginTime = parseTime(form.value.beginTime);
+        form.value.endTime = parseTime(form.value.endTime);
+        goodsIds.value = response.data.goodsIds;
+        if (form.value.storeIds && form.value.storeIds.length > 0) {
+            form.value.storeIds = form.value.storeIds.split(",");
         }
-        if (app.form.gradeIds && app.form.gradeIds.length > 0) {
-            app.form.gradeIds = app.form.gradeIds.split(",");
+        if (form.value.gradeIds && form.value.gradeIds.length > 0) {
+            form.value.gradeIds = form.value.gradeIds.split(",");
         }
-        if (app.form.type == 'P' && app.form.inRule) {
-           const storeRules = app.form.inRule.split(",");
-           app.storeItem = [];
+        if (form.value.type == 'P' && form.value.inRule) {
+           const storeRules = form.value.inRule.split(",");
+           storeItem.length = 0;
            if (storeRules.length > 0) {
                storeRules.forEach(function(rule){
                    const ruleItem = rule.split("_");
                    if (ruleItem.length == 2) {
-                       app.storeItem.push( { storeAmount: ruleItem[0], giveAmount: ruleItem[1] } );
+                       storeItem.push( { storeAmount: ruleItem[0], giveAmount: ruleItem[1] } );
                    }
                })
            }
         }
-        app.open = true;
-        app.title = "编辑卡券";
+        open.value = true;
+        title.value = "编辑卡券";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
+    }
+
+function handleDelete(row) {
+      modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
          return deleteCoupon(row.id);
       }).then(() => {
-         this.getList();
-         this.$modal.msgSuccess("删除成功");
+         getList();
+         modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    // 发券
-    handleSend(row) {
-       this.openSendCouponDialog = true;
-       this.sendForm.couponName = row.name;
-       this.sendForm.couponId = row.id;
-       this.sendForm.num = row.sendNum ? parseInt(row.sendNum): '';
-       this.sendForm.object = 'part';
-       this.sendForm.memberIds = [];
-       this.sendForm.remark = '';
-    },
-    // 取消发券
-    cancelSend() {
-      if (this.sendLoading) {
-          this.$modal.msgError("请耐心等待...");
+    }
+
+function handleSend(row) {
+       openSendCouponDialog.value = true;
+       sendForm.couponName = row.name;
+       sendForm.couponId = row.id;
+       sendForm.num = row.sendNum ? parseInt(row.sendNum): '';
+       sendForm.object = 'part';
+       sendForm.memberIds = [];
+       sendForm.remark = '';
+    }
+
+function cancelSend() {
+      if (sendLoading.value) {
+          modal.msgError("请耐心等待...");
           return false;
       }
-      this.openSendCouponDialog = false;
-    },
-    // 二维码
-    handleQrCode(row) {
-      this.qr = { type: "coupon", id: row.id };
-      this.openQrCode = true;
-    },
-    // 发放对象
-    objectChange() {
-      if (this.sendForm.object == 'all') {
-          this.sendForm.memberIds = [];
+      openSendCouponDialog.value = false;
+    }
+
+function handleQrCode(row) {
+      qr.value = { type: "coupon", id: row.id };
+      openQrCode.value = true;
+    }
+
+function objectChange() {
+      if (sendForm.object == 'all') {
+          sendForm.memberIds = [];
       }
-    },
-    // 选择会员
-    selectUser() {
-      this.openUserSelect = true;
-    },
-    // 确定选择会员
-    doSelectUser(memberIds) {
-      this.sendForm.memberIds = memberIds;
-      this.openUserSelect = false;
-    },
-    // 关闭选择会员对话框
-    closeDialog() {
-      this.openUserSelect = false;
-    },
-    // 关闭二维码对话框
-    closeQrDialog() {
-      this.openQrCode = false;
-    },
-    // 确定发券
-    doSendCoupon() {
-      const app = this;
-      if (app.sendLoading) {
+    }
+
+function selectUser() {
+      openUserSelect.value = true;
+    }
+
+function doSelectUser(memberIds) {
+      sendForm.memberIds = memberIds;
+      openUserSelect.value = false;
+    }
+
+function closeDialog() {
+      openUserSelect.value = false;
+    }
+
+function closeQrDialog() {
+      openQrCode.value = false;
+    }
+
+function doSendCoupon() {
+      
+      if (sendLoading.value) {
           return false;
       }
       app.$refs["sendForm"].validate(valid => {
@@ -873,49 +860,52 @@ export default {
             cancelButtonText: '取消',
             type: 'warning'
           }).then(() => {
-              app.sendLoading = true;
-              const userIds = app.sendForm.memberIds ? app.sendForm.memberIds.join(",") : '';
-              const param = { couponId: app.sendForm.couponId, userIds : userIds, object: app.sendForm.object, num : app.sendForm.num, remark: app.sendForm.remark };
+              sendLoading.value = true;
+              const userIds = sendForm.memberIds ? sendForm.memberIds.join(",") : '';
+              const param = { couponId: sendForm.couponId, userIds : userIds, object: sendForm.object, num : sendForm.num, remark: sendForm.remark };
               sendCoupon(param).then(response => {
                 if (response.data) {
-                    app.openSendCouponDialog = false
-                    app.$modal.msgSuccess("卡券发放成功");
-                    app.sendLoading = false;
+                    openSendCouponDialog.value = false
+                    modal.msgSuccess("卡券发放成功");
+                    sendLoading.value = false;
                 }
               }).catch(() => {
-                  app.sendLoading = false;
+                  sendLoading.value = false;
               });;
           }).catch(() => {
-              app.sendLoading = false;
+              sendLoading.value = false;
           });
         }
       })
-    },
-    // 添加预存规则
-    addStoreItem() {
-      this.storeItem.push( { storeAmount: '', giveAmount: '' } );
-    },
-    // 删除预存规则
-    removeStoreItem(index) {
+    }
+
+function addStoreItem() {
+      storeItem.push( { storeAmount: '', giveAmount: '' } );
+    }
+
+function removeStoreItem(index) {
       const newStoreItem = [];
-      this.storeItem.forEach(function(item, i){
+      storeItem.forEach(function(item, i){
         if (index !== i) {
             newStoreItem.push(item);
         }
       });
-      this.storeItem = newStoreItem;
-    },
-    // 上传成功
-    handleUploadSuccess(file) {
-      this.form.image = file.data.fileName
-    },
-    handleRemove(file, fileList) {
+      storeItem.length = 0; storeItem.push(...(newStoreItem || []));
+    }
+
+function handleUploadSuccess(file) {
+      form.value.image = file.data.fileName
+    }
+
+function handleRemove(file, fileList) {
       setTimeout(() => {
-        this.hideUpload = fileList.length > 0
+        hideUpload.value = fileList.length > 0
       }, 520)
     }
-  }
-};
+
+getList();
+getGroupList();
+getTotalMember();
 </script>
 <style scoped>
 .common-dialog :deep(.el-upload--picture-card) {

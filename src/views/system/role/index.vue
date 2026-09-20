@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" class="main-search" ref="queryForm" size="small" :inline="true" v-show="showSearch">
+    <el-form :model="queryParams" class="main-search" ref="queryFormRef" size="small" :inline="true" v-show="showSearch">
       <el-form-item label="角色名称" prop="roleName">
         <el-input
           v-model="queryParams.name"
@@ -73,19 +73,21 @@
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
-        <template v-if="scope.row.id !== 1" #default="scope">
-          <el-button
-            size="small"
-            type="text"
-            icon="el-icon-edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['system:role:edit']">修改</el-button>
-          <el-button
-            size="small"
-            type="text"
-            icon="el-icon-delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['system:role:delete']">删除</el-button>
+        <template #default="{ row }">
+          <template v-if="row && row.id !== 1">
+            <el-button
+              size="small"
+              type="text"
+              icon="el-icon-edit"
+              @click="handleUpdate(row)"
+              v-hasPermi="['system:role:edit']">修改</el-button>
+            <el-button
+              size="small"
+              type="text"
+              icon="el-icon-delete"
+              @click="handleDelete(row)"
+              v-hasPermi="['system:role:delete']">删除</el-button>
+          </template>
         </template>
       </el-table-column>
     </el-table>
@@ -99,7 +101,7 @@
 
     <!-- 添加或修改角色配置对话框 -->
     <el-dialog :title="title" v-model="open" width="700px" class="common-dialog" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="角色名称" prop="roleName">
           <el-input v-model="form.roleName" style="width: 300px" placeholder="请输入角色名称" />
         </el-form-item>
@@ -145,15 +147,19 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { listRole, getRole, delRole, addRole, updateRole, changeRoleStatus } from "@/api/system/role";
 import { treeselect as menuTreeselect } from "@/api/system/menu";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import modal from '@/plugins/modal'
 
-export default {
-  name: "Role",
-  data() {
-    return {
-      // 遮罩层
+defineOptions({ name: 'Role' })
+
+const router = useRouter()
+const route = useRoute()
+const state = reactive({
+// 遮罩层
       loading: true,
       // 选中数组
       ids: [],
@@ -201,67 +207,77 @@ export default {
           { required: true, message: "角色类型不能为空", trigger: "blur" }
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询角色列表
-    getList() {
-      this.loading = true;
-      listRole(this.queryParams).then(response => {
-          this.roleList = response.data.content;
-          this.total = response.data.totalElements;
-          this.loading = false;
-        }
-      );
-    },
-    // 查询菜单树结构
-    getMenuTreeselect() {
+})
+const { loading, ids, single, multiple, showSearch, total, roleList, title, open, openDataScope, menuExpand, menuNodeAll, menuOptions, deptOptions, queryParams, form, defaultProps, rules } = toRefs(state)
+
+function getList() {
+
+      loading.value = true;
+      listRole(queryParams.value).then(response => {
+        const data = (response && response.data) || {};
+        roleList.value = data.content || [];
+        total.value = data.totalElements || 0;
+      }).finally(() => {
+        loading.value = false;
+      });
+    
+}
+
+function getMenuTreeselect() {
+
       return menuTreeselect().then(response => {
-          this.menuOptions = response.data;
+          menuOptions.value = response.data;
           return response
       });
-    },
-    // 所有菜单节点数据
-    getMenuAllCheckedKeys() {
+    
+}
+
+function getMenuAllCheckedKeys() {
+
       // 目前被选中的菜单节点
-      let checkedKeys = this.$refs.menu.getCheckedKeys();
+      let checkedKeys = menuRef.value.getCheckedKeys();
       // 半选中的菜单节点
-      let halfCheckedKeys = this.$refs.menu.getHalfCheckedKeys();
+      let halfCheckedKeys = menuRef.value.getHalfCheckedKeys();
       checkedKeys.unshift.apply(checkedKeys, halfCheckedKeys);
       return checkedKeys;
-    },
-    // 角色状态修改
-    handleStatusChange(row) {
+    
+}
+
+function handleStatusChange(row) {
+
       let text = row.status === "N" ? "禁用" : "启用";
-      this.$modal.confirm('确认要' + text + '"' + row.name + '"角色吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.name + '"角色吗？').then(function() {
         return changeRoleStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "A" ? "N" : "A";
       });
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 取消按钮（数据权限）
-    cancelDataScope() {
-      this.openDataScope = false;
-      this.reset();
-    },
-    // 表单重置
-    reset() {
-      if (this.$refs.menu != undefined) {
-          this.$refs.menu.setCheckedKeys([]);
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function cancelDataScope() {
+
+      openDataScope.value = false;
+      reset();
+    
+}
+
+function reset() {
+
+      if (menuRef.value != undefined) {
+          menuRef.value.setCheckedKeys([]);
       }
-      this.menuExpand = false,
-      this.menuNodeAll = false,
-      this.form = {
+      menuExpand.value = false,
+      menuNodeAll.value = false,
+      form.value = {
         id: undefined,
         roleName: '',
         roleType: '1',
@@ -270,118 +286,141 @@ export default {
         menuCheckStrictly: true,
         description: ''
       };
-      this.resetForm("form");
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.queryParams.name = '';
-      this.queryParams.status = '';
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.single = selection.length!=1
-      this.multiple = !selection.length
-    },
-    // 树权限（展开/折叠）
-    handleCheckedTreeExpand(value, type) {
+      formRef.value?.resetFields();
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      dateRange.value = [];
+      queryParams.value.name = '';
+      queryParams.value.status = '';
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id)
+      single.value = selection.length!=1
+      multiple.value = !selection.length
+    
+}
+
+function handleCheckedTreeExpand(value, type) {
+
       if (type == 'menu') {
-          let treeList = this.menuOptions;
+          let treeList = menuOptions.value;
           for (let i = 0; i < treeList.length; i++) {
-               this.$refs.menu.store.nodesMap[treeList[i].id].expanded = value;
+               menuRef.value.store.nodesMap[treeList[i].id].expanded = value;
           }
       }
-    },
-    // 树权限（全选/全不选）
-    handleCheckedTreeNodeAll(value, type) {
+    
+}
+
+function handleCheckedTreeNodeAll(value, type) {
+
       if (type == 'menu') {
-          this.$refs.menu.setCheckedNodes(value ? this.menuOptions: []);
+          menuRef.value.setCheckedNodes(value ? menuOptions.value: []);
       }
-    },
-    // 树权限（父子联动）
-    handleCheckedTreeConnect(value, type) {
+    
+}
+
+function handleCheckedTreeConnect(value, type) {
+
       if (type == 'menu') {
-          this.form.menuCheckStrictly = value ? true: false;
+          form.value.menuCheckStrictly = value ? true: false;
       }
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.getMenuTreeselect();
-      this.open = true;
-      this.title = "添加角色";
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const roleMenu = this.getMenuTreeselect();
-      const roleId = row.id || this.ids
+    
+}
+
+function handleAdd() {
+
+      reset();
+      getMenuTreeselect();
+      open.value = true;
+      title.value = "添加角色";
+    
+}
+
+function handleUpdate(row) {
+
+      reset();
+      const roleMenu = getMenuTreeselect();
+      const roleId = row.id || ids.value
       getRole(roleId).then(response => {
-        this.form.roleName = response.data.roleInfo.name;
-        this.form.roleType = response.data.roleInfo.type;
-        this.form.status = response.data.roleInfo.status;
-        this.form.id = response.data.roleInfo.id;
-        this.form.description = response.data.roleInfo.description;
-        this.open = true;
-        this.title = "修改角色";
+        form.value.roleName = response.data.roleInfo.name;
+        form.value.roleType = response.data.roleInfo.type;
+        form.value.status = response.data.roleInfo.status;
+        form.value.id = response.data.roleInfo.id;
+        form.value.description = response.data.roleInfo.description;
+        open.value = true;
+        title.value = "修改角色";
         let checkedKeys = response.data.checkedKeys
 
-        this.$nextTick(() => {
+        nextTick(() => {
           roleMenu.then(res => {
             checkedKeys.forEach((v) => {
-              this.$nextTick(()=>{
-                  this.$refs.menu.setChecked(v, true ,false);
+              nextTick(()=>{
+                  menuRef.value.setChecked(v, true ,false);
               })
             })
           });
         });
       });
-    },
-    // 分配用户操作
-    handleAuthUser: function(row) {
+    
+}
+
+function handleAuthUser(row) {
+
       const roleId = row.id;
-      this.$router.push("/system/role-auth/account/" + roleId);
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      router.push("/system/role-auth/account/" + roleId);
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-            this.form.menuIds = this.getMenuAllCheckedKeys();
-            updateRole(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功");
-              this.open = false;
-              this.getList();
+          if (form.value.id) {
+            form.value.menuIds = getMenuAllCheckedKeys();
+            updateRole(form.value).then(response => {
+              modal.msgSuccess("修改成功");
+              open.value = false;
+              getList();
             });
           } else {
-            this.form.menuIds = this.getMenuAllCheckedKeys();
-            addRole(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功");
-              this.open = false;
-              this.getList();
+            form.value.menuIds = getMenuAllCheckedKeys();
+            addRole(form.value).then(response => {
+              modal.msgSuccess("新增成功");
+              open.value = false;
+              getList();
             });
           }
         }
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      const roleIds = row.id || this.ids;
-      this.$modal.confirm('是否确认删除角色ID为"' + roleIds + '"的数据项？').then(function() {
+    
+}
+
+function handleDelete(row) {
+
+      const roleIds = row.id || ids.value;
+      modal.confirm('是否确认删除角色ID为"' + roleIds + '"的数据项？').then(function() {
         return delRole(roleIds);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    }
-  }
-};
+    
+}
+
+getList()
 </script>

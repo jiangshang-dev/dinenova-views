@@ -120,22 +120,20 @@
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {};
-  },
-  props: ["curItem", "selectedIndex"],
-  created() {
-    this.curItem.style.height = parseInt(this.curItem.style.height);
-  },
-  methods: {
-    //重置颜色
-    onEditorResetColor(holder, attribute, color) {
-      this.$emit("onEditorResetColor", holder, attribute, color);
-    },
-  },
-};
+<script setup>
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+
+defineOptions({ name: 'Blank' })
+
+const props = defineProps(['curItem', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+function onEditorResetColor(holder, attribute, color) {
+
+      emit("onEditorResetColor", holder, attribute, color);
+    
+}
 </script>
 
 <style lang="scss" scoped></style>

@@ -268,18 +268,21 @@
   </div>
 </template>
 
-<script>
-// import { linkUrlList } from "@/utils/linkUrl";
-import { getLinkUrlList } from "@/api/link/homeLink";
+<script setup>
+import { getLinkUrlList as getLinkUrlListApi } from "@/api/link/homeLink";
 import { getToken } from "@/utils/auth";
 import draggable from "@/components/DraggableList.vue";
-export default {
-  components: {
-    draggable,
-  },
-  data() {
-    return {
-      linkUrlList: [],
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'adNav' })
+
+const props = defineProps(['curItem', 'selectedIndex'])
+
+const emit = defineEmits([])
+
+const state = reactive({
+linkUrlList: [],
       // 上传地址
       uploadAction: import.meta.env.VUE_APP_SERVER_URL + "backendApi/file/upload",
       // 隐藏上传
@@ -287,54 +290,54 @@ export default {
       // 上传文件列表
       uploadFiles: [],
       uploadHeader: { "Access-Token": getToken() },
-    };
-  },
-  props: ["curItem", "selectedIndex"],
-  created() {
-    console.log(linkUrlList);
-  },
-  mounted() {
-    this.getLinkUrlList()
-  },
-  methods: {
-    getLinkUrlList() {
-      getLinkUrlList().then(res=>{
+})
+const { linkUrlList, uploadAction, hideUpload, uploadFiles, uploadHeader } = toRefs(state)
+
+function getLinkUrlList() {
+
+      getLinkUrlListApi().then(res=>{
         console.log('res,,,', res)
         if(res.code === 200){
-          this.linkUrlList = res.data
+          linkUrlList.value = res.data
         }
       })
-    },
-    onEditorDeleleData: function (index) {
+    
+}
+
+function onEditorDeleleData(index) {
+
       let self = this;
       if (self.curItem.data.length <= 1) {
-        this.$modal.msgWarning("至少保留一个！");
+        modal.msgWarning("至少保留一个！");
         return false;
       }
       self.curItem.data.splice(index, 1);
-    },
+    
+}
 
-    //替换照片
-    onEditorSelectImage(index, imgUrl) {
-      this.$emit("onEditorSelectImage", index, imgUrl);
-    },
+function onEditorSelectImage(index, imgUrl) {
 
-    //重置颜色
-    onEditorResetColor(holder, attribute, color) {
-      this.$emit("onEditorResetColor", holder, attribute, color);
-    },
+      emit("onEditorSelectImage", index, imgUrl);
+    
+}
 
-    //添加子组件
-    onEditorAddData() {
-      this.$emit("onEditorAddData");
-    },
+function onEditorResetColor(holder, attribute, color) {
 
-    //修改图标
-    handleUploadSuccess(file, element) {
-      this.$emit("onEditorSelectImage", element, "imgUrl", file.data.filePath);
-    },
-  },
-};
+      emit("onEditorResetColor", holder, attribute, color);
+    
+}
+
+function onEditorAddData() {
+
+      emit("onEditorAddData");
+    
+}
+
+function handleUploadSuccess(file, element) {
+
+      emit("onEditorSelectImage", element, "imgUrl", file.data.filePath);
+    
+}
 </script>
 
 <style scoped>

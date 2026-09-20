@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" class="main-search" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="68px">
+    <el-form :model="queryParams" class="main-search" ref="queryFormRef" size="small" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="表名称" prop="title">
         <el-input
           v-model="queryParams.tableName"
@@ -90,7 +90,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="表名称" prop="tableName">
@@ -145,13 +145,15 @@
   </div>
 </template>
 
-<script>
-import { getGenCodeList, updateGenCodeStatus, getGenCodeInfo, saveGenCode, doGenCode } from "@/api/system/genCode";
-export default {
-  name: "GenCodeIndex",
-  data() {
-    return {
-      // 遮罩层
+<script setup>
+import { getGenCodeList, updateGenCodeStatus, getGenCodeInfo, saveGenCode, doGenCode as doGenCodeApi } from "@/api/system/genCode";
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'GenCodeIndex' })
+
+const state = reactive({
+// 遮罩层
       loading: true,
       // 标题
       title: "",
@@ -205,122 +207,143 @@ export default {
           { min: 2, max: 200, message: '作者长度必须介于2 和 200 之间', trigger: 'blur' }
         ]
       }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getGenCodeList(this.queryParams).then( response => {
-          this.list = response.data.dataList.content;
-          this.total = response.data.dataList.totalElements;
-          this.imagePath = response.data.imagePath;
-          this.storeList = response.data.storeList;
-          this.loading = false;
-        }
-      );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order);
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+})
+const { loading, title, ids, multiple, showSearch, imagePath, total, list, open, defaultSort, form, storeList, queryParams, rules } = toRefs(state)
+
+function getList() {
+  loading.value = true
+  getGenCodeList(queryParams.value).then(response => {
+    const page = (response.data && response.data.dataList) || {}
+    list.value = page.content || []
+    total.value = page.totalElements || 0
+    imagePath.value = response.data.imagePath
+    storeList.value = response.data.storeList
+  }).finally(() => {
+    loading.value = false
+  })
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      tablesRef.value.sort(defaultSort.value.prop, defaultSort.value.order);
+      handleQuery();
+    
+}
+
+function handleStatusChange(row) {
+
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
+      modal.confirm('确认要' + text + '"' + row.title + '"吗？').then(function() {
         return updateGenCodeStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增生成代码";
-    },
-    // 表单重置
-    reset() {
-      this.form = { id: '', tableName: '', tablePrefix: '', moduleName: '', author: '', backendPath: '',  status: "A" };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+    
+}
+
+function handleSelectionChange(selection) {
+
+      ids.value = selection.map(item => item.id)
+      multiple.value = !selection.length
+    
+}
+
+function handleSortChange(column) {
+
+      queryParams.value.orderByColumn = column.prop;
+      queryParams.value.isAsc = column.order;
+      getList();
+    
+}
+
+function handleAdd() {
+
+      reset();
+      open.value = true;
+      title.value = "新增生成代码";
+    
+}
+
+function reset() {
+
+      form.value = { id: '', tableName: '', tablePrefix: '', moduleName: '', author: '', backendPath: '',  status: "A" };
+      formRef.value?.resetFields();
+    
+}
+
+function cancel() {
+
+      open.value = false;
+      reset();
+    
+}
+
+function submitForm() {
+
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-              saveGenCode(this.form).then(response => {
-                this.$modal.msgSuccess("修改生成代码成功");
-                this.open = false;
-                this.getList();
+          if (form.value.id) {
+              saveGenCode(form.value).then(response => {
+                modal.msgSuccess("修改生成代码成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveGenCode(this.form).then(response => {
-                this.$modal.msgSuccess("新增生成代码成功");
-                this.open = false;
-                this.getList();
+              saveGenCode(form.value).then(response => {
+                modal.msgSuccess("新增生成代码成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
+    
+}
+
+function handleUpdate(row) {
+
+      reset();
+      const id = row.id || ids.value;
       getGenCodeInfo(id).then(response => {
-        this.form = response.data.tGenCode;
-        this.open = true;
-        this.title = "编辑生成代码";
+        form.value = response.data.tGenCode;
+        open.value = true;
+        title.value = "编辑生成代码";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
+    
+}
+
+function handleDelete(row) {
+
       const name = row.tableName;
-      this.$modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
+      modal.confirm('是否确认删除"' + name + '"的数据项？').then(function() {
         return updateGenCodeStatus(row.id, 'D');
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
-    },
-    // 生成按钮操作
-    doGenCode(row) {
-      this.$modal.confirm('确定生成"' + row.tableName + '"的代码？').then(function() {
-        return doGenCode(row.id);
+    
+}
+
+function doGenCode(row) {
+
+      modal.confirm('确定生成"' + row.tableName + '"的代码？').then(function() {
+        return doGenCodeApi(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("代码生成成功");
+        getList();
+        modal.msgSuccess("代码生成成功");
       }).catch(() => {});
-    }
-  }
-};
+    
+}
+
+getList()
 </script>

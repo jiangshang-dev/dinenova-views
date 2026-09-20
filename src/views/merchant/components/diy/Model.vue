@@ -117,7 +117,7 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import UserInfo from "./model/UserInfo.vue";
 import Banner from "./model/Banner.vue";
 import Window from "./model/Window.vue";
@@ -126,106 +126,86 @@ import Blank from "./model/Blank.vue";
 import adNav from "./model/adNav.vue";
 import Guide from "./model/Guide.vue";
 import draggable from "@/components/DraggableList.vue";
-export default {
-  components: {
-    /*用户信息组件*/
-    UserInfo,
-    /*图片轮播组件*/
-    Banner,
-    /*图片橱窗*/
-    Window,
-    /*广告导航*/
-    adNav,
-    /*导航组*/
-    NavBar,
-    /*辅助空白*/
-    Blank,
-    /*辅助线*/
-    Guide,
-    /*拖动*/
-    draggable,
-  },
-  data() {
-    return {};
-  },
-  props: {
-    form: Object,
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'Model' })
+
+const props = defineProps({
+form: Object,
     diyData: Object,
-  },
-  methods: {
-    swapArray(arr, index1, index2) {
+})
+
+function swapArray(arr, index1, index2) {
+
       arr[index1] = arr.splice(index2, 1, arr[index1])[0];
       return arr;
-    },
-    DeleteFunc() {
-      let self = this;
-      let n = self.form.selectedIndex;
-      if (n < 0) {
-        return;
-      }
-      self.diyData.items.splice(n, 1);
-    },
-    DocumentCopyFunc() {
-      let self = this;
-      let n = self.form.selectedIndex;
-      if (n < 0) {
-        return;
-      }
-      let item = self.diyData.items[n];
-      self.diyData.items.splice(n, 0, item);
-    },
-    ArrowUpBoldFunc() {
-      let self = this;
-      let n = self.form.selectedIndex;
-      if (n < 0) {
-        return;
-      }
-      if (n != 0) {
-        self.swapArray(self.diyData.items, n, n - 1);
-        self.form.selectedIndex--;
-      }
-    },
-    ArrowDownBoldFunc() {
-      let self = this;
-      let n = self.form.selectedIndex;
-      if (n < 0) {
-        return;
-      }
+    
+}
 
-      if (n + 1 != self.diyData.items.length) {
-        self.swapArray(self.diyData.items, n, n + 1);
-        self.form.selectedIndex++;
-      }
-    },
-    /*删除diy元素*/
-    onDeleleItem: function (index) {
-      let self = this;
-      this.$modal
-        .confirm("确定要删除吗?")
-        .then(() => {
-          self.diyData.items.splice(index, 1);
-          self.form.selectedIndex = -1;
-        })
-        .catch(() => {
-          console.log("catch");
-        });
-    },
+function DeleteFunc() {
+  let n = props.form.selectedIndex;
+  if (n < 0) {
+    return;
+  }
+  props.diyData.items.splice(n, 1);
+}
 
-    /*编辑当前选中的Diy元素*/
-    onEditer: function (index) {
-      let self = this;
-      // 记录当前选中元素的索引
-      self.form.selectedIndex = index;
-      // 当前选中的元素数据
-      self.form.curItem =
-        self.form.selectedIndex < 0
-          ? self.diyData.page
-          : self.diyData.items[self.form.selectedIndex];
+function DocumentCopyFunc() {
+  let n = props.form.selectedIndex;
+  if (n < 0) {
+    return;
+  }
+  let item = props.diyData.items[n];
+  props.diyData.items.splice(n, 0, item);
+}
 
-      console.log(self.form.curItem);
-    },
-  },
-};
+function ArrowUpBoldFunc() {
+  let n = props.form.selectedIndex;
+  if (n < 0) {
+    return;
+  }
+  if (n != 0) {
+    swapArray(props.diyData.items, n, n - 1);
+    props.form.selectedIndex--;
+  }
+}
+
+function ArrowDownBoldFunc() {
+  let n = props.form.selectedIndex;
+  if (n < 0) {
+    return;
+  }
+
+  if (n + 1 != props.diyData.items.length) {
+    swapArray(props.diyData.items, n, n + 1);
+    props.form.selectedIndex++;
+  }
+}
+
+function onDeleleItem(index) {
+  modal
+    .confirm("确定要删除吗?")
+    .then(() => {
+      props.diyData.items.splice(index, 1);
+      props.form.selectedIndex = -1;
+    })
+    .catch(() => {
+      console.log("catch");
+    });
+}
+
+function onEditer(index) {
+  // 记录当前选中元素的索引
+  props.form.selectedIndex = index;
+  // 当前选中的元素数据
+  props.form.curItem =
+    props.form.selectedIndex < 0
+      ? props.diyData.page
+      : props.diyData.items[props.form.selectedIndex];
+}
+
+defineExpose({ onEditer, onDeleleItem, DeleteFunc, DocumentCopyFunc, ArrowUpBoldFunc, ArrowDownBoldFunc })
 </script>
 
 <style lang="scss" scoped>

@@ -6,89 +6,85 @@
   </div>
 </template>
 
-<script>
-import Sortable from "sortablejs";
+<script setup>
+import Sortable from 'sortablejs'
+import { ref, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
 
-/**
- * vuedraggable 4.1 在 Vue 3.5 里会改写只读 vnode，插槽内容渲染失败。
- * 保持原来的 v-model / #item 用法，列表用 v-for 画出来，排序交给 sortablejs。
- */
-export default {
-  name: "DraggableList",
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => [],
-    },
-    itemKey: {
-      type: [String, Function],
-      default: undefined,
-    },
-    group: {
-      type: [String, Object],
-      default: undefined,
-    },
+defineOptions({ name: 'DraggableList' })
+
+const props = defineProps({
+  modelValue: {
+    type: Array,
+    default: () => [],
   },
-  emits: ["update:modelValue"],
-  computed: {
-    list() {
-      return Array.isArray(this.modelValue) ? this.modelValue : [];
-    },
+  itemKey: {
+    type: [String, Function],
+    default: undefined,
   },
-  mounted() {
-    this.sortable = Sortable.create(this.$refs.root, {
-      animation: 150,
-      group: {
-        name: "diy-list-" + this.$.uid,
-        pull: false,
-        put: false,
-      },
-      filter:
-        "input,textarea,button,select,option,a,.btn-del,.el-slider,.el-input,.el-button,.el-upload,.el-color-picker",
-      preventOnFilter: false,
-      onEnd: (evt) => this.onDragEnd(evt),
-    });
+  group: {
+    type: [String, Object],
+    default: undefined,
   },
-  beforeUnmount() {
-    if (this.sortable) {
-      this.sortable.destroy();
-      this.sortable = null;
+})
+
+const emit = defineEmits(['update:modelValue'])
+
+const root = ref(null)
+const instance = getCurrentInstance()
+let sortable = null
+
+const list = computed(() => (Array.isArray(props.modelValue) ? props.modelValue : []))
+
+function rowKey(element, index) {
+  if (typeof props.itemKey === 'function') {
+    const key = props.itemKey(element)
+    return key == null ? index : key
+  }
+  if (typeof props.itemKey === 'string' && element && element[props.itemKey] != null) {
+    return element[props.itemKey]
+  }
+  return index
+}
+
+function onDragEnd(evt) {
+  const { oldIndex, newIndex, item, from } = evt
+  if (oldIndex == null || newIndex == null || oldIndex === newIndex) {
+    return
+  }
+  if (item.parentNode === from) {
+    from.removeChild(item)
+    const refEl = from.children[oldIndex]
+    if (refEl) {
+      from.insertBefore(item, refEl)
+    } else {
+      from.appendChild(item)
     }
-  },
-  methods: {
-    rowKey(element, index) {
-      if (typeof this.itemKey === "function") {
-        const key = this.itemKey(element);
-        return key == null ? index : key;
-      }
-      if (
-        typeof this.itemKey === "string" &&
-        element &&
-        element[this.itemKey] != null
-      ) {
-        return element[this.itemKey];
-      }
-      return index;
+  }
+  const next = list.value.slice()
+  const moved = next.splice(oldIndex, 1)[0]
+  next.splice(newIndex, 0, moved)
+  emit('update:modelValue', next)
+}
+
+onMounted(() => {
+  sortable = Sortable.create(root.value, {
+    animation: 150,
+    group: props.group || {
+      name: 'diy-list-' + instance.uid,
+      pull: false,
+      put: false,
     },
-    onDragEnd(evt) {
-      const { oldIndex, newIndex, item, from } = evt;
-      if (oldIndex == null || newIndex == null || oldIndex === newIndex) {
-        return;
-      }
-      if (item.parentNode === from) {
-        from.removeChild(item);
-        const ref = from.children[oldIndex];
-        if (ref) {
-          from.insertBefore(item, ref);
-        } else {
-          from.appendChild(item);
-        }
-      }
-      const next = this.list.slice();
-      const moved = next.splice(oldIndex, 1)[0];
-      next.splice(newIndex, 0, moved);
-      this.$emit("update:modelValue", next);
-    },
-  },
-};
+    filter:
+      'input,textarea,button,select,option,a,.btn-del,.el-slider,.el-input,.el-button,.el-upload,.el-color-picker',
+    preventOnFilter: false,
+    onEnd: (evt) => onDragEnd(evt),
+  })
+})
+
+onBeforeUnmount(() => {
+  if (sortable) {
+    sortable.destroy()
+    sortable = null
+  }
+})
 </script>

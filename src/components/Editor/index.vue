@@ -1,6 +1,8 @@
 <template>
-  <div>
+  <div class="editor-wrap">
     <el-upload
+      v-if="type === 'url'"
+      ref="upload"
       :action="uploadUrl"
       :before-upload="handleBeforeUpload"
       :on-success="handleUploadSuccess"
@@ -9,207 +11,273 @@
       :show-file-list="false"
       :headers="headers"
       style="display: none"
-      ref="upload"
-      v-if="this.type == 'url'">
-    </el-upload>
-    <div class="editor" ref="editor" :style="styles"></div>
+    />
+    <div ref="editor" class="editor" :style="styles"></div>
   </div>
 </template>
 
-<script>
-import Quill from "quill";
-import "quill/dist/quill.core.css";
-import "quill/dist/quill.snow.css";
-import "quill/dist/quill.bubble.css";
-import { getToken } from "@/utils/auth";
+<script setup>
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
+import Quill from 'quill'
+import 'quill/dist/quill.core.css'
+import 'quill/dist/quill.snow.css'
+import 'quill/dist/quill.bubble.css'
+import { getToken } from '@/utils/auth'
 
-export default {
-  name: "Editor",
-  props: {
-    /* 编辑器的内容，兼容 Vue2 v-model 与 Vue3 v-model */
-    modelValue: {
-      type: String,
-      default: undefined
-    },
-    value: {
-      type: String,
-      default: "",
-    },
-    /* 高度 */
-    height: {
-      type: Number,
-      default: null,
-    },
-    /* 最小高度 */
-    minHeight: {
-      type: Number,
-      default: null,
-    },
-    /* 只读 */
-    readOnly: {
-      type: Boolean,
-      default: false,
-    },
-    // 上传文件大小限制(MB)
-    fileSize: {
-      type: Number,
-      default: 5,
-    },
-    /* 类型（base64格式、url格式） */
-    type: {
-      type: String,
-      default: "url",
+defineOptions({ name: 'Editor' })
+
+const props = defineProps({
+  modelValue: {
+    type: String,
+    default: undefined
+  },
+  value: {
+    type: String,
+    default: ''
+  },
+  height: {
+    type: Number,
+    default: null
+  },
+  minHeight: {
+    type: Number,
+    default: null
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
+  },
+  fileSize: {
+    type: Number,
+    default: 5
+  },
+  type: {
+    type: String,
+    default: 'url'
+  }
+})
+
+const emit = defineEmits([
+  'update:modelValue',
+  'input',
+  'on-change',
+  'on-text-change',
+  'on-selection-change',
+  'on-editor-change'
+])
+
+const uploadUrl = (import.meta.env.VUE_APP_BASE_API || '').replace(/\/$/, '') + '/backendApi/file/upload'
+const headers = { 'Access-Token': getToken() }
+
+const upload = ref(null)
+const editor = ref(null)
+let quill = null
+let destroyed = false
+const currentValue = ref('')
+const updating = ref(false)
+
+const styles = computed(() => {
+  const style = {}
+  if (props.minHeight) {
+    style.minHeight = `${props.minHeight}px`
+  }
+  if (props.height) {
+    style.height = `${props.height}px`
+  }
+  return style
+})
+
+const currentContent = computed(() => {
+  return props.modelValue === undefined ? props.value : props.modelValue
+})
+
+function safePaste(html) {
+  if (destroyed || !quill || !editor.value) {
+    return
+  }
+  try {
+    updating.value = true
+    quill.root.innerHTML = html || ''
+  } catch (e) {
+    // ignore
+  } finally {
+    nextTick(() => {
+      updating.value = false
+    })
+  }
+}
+
+watch(
+  currentContent,
+  (val) => {
+    if (destroyed || updating.value) {
+      return
+    }
+    const next = val === null || val === undefined ? '' : val
+    if (next === currentValue.value) {
+      return
+    }
+    currentValue.value = next
+    if (quill) {
+      safePaste(next)
     }
   },
-  data() {
-    return {
-      uploadUrl: (import.meta.env.VUE_APP_BASE_API || '').replace(/\/$/, '') + '/backendApi/file/upload',
-      headers: {
-        'Access-Token': getToken()
-      },
-      Quill: null,
-      currentValue: "",
-      options: {
-        theme: "snow",
-        bounds: document.body,
-        debug: "warn",
-        modules: {
-          // 工具栏配置
-          toolbar: [
-            ["bold", "italic", "underline", "strike"],       // 加粗 斜体 下划线 删除线
-            ["blockquote", "code-block"],                    // 引用  代码块
-            [{ list: "ordered" }, { list: "bullet" }],       // 有序、无序列表
-            [{ indent: "-1" }, { indent: "+1" }],            // 缩进
-            [{ size: ["small", false, "large", "huge"] }],   // 字体大小
-            [{ header: [1, 2, 3, 4, 5, 6, false] }],         // 标题
-            [{ color: [] }, { background: [] }],             // 字体颜色、字体背景颜色
-            [{ align: [] }],                                 // 对齐方式
-            ["clean"],                                       // 清除文本格式
-            ["link", "image", "video"]                       // 链接、图片、视频
-          ],
-        },
-        placeholder: "请输入内容",
-        readOnly: this.readOnly,
-      },
-    };
-  },
-  computed: {
-    styles() {
-      let style = {};
-      if (this.minHeight) {
-        style.minHeight = `${this.minHeight}px`;
+  { immediate: true }
+)
+
+function init() {
+  if (!editor.value || destroyed) {
+    return
+  }
+  quill = new Quill(editor.value, {
+    theme: 'snow',
+    bounds: document.body,
+    debug: 'warn',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote', 'code-block'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ indent: '-1' }, { indent: '+1' }],
+        [{ size: ['small', false, 'large', 'huge'] }],
+        [{ header: [1, 2, 3, 4, 5, 6, false] }],
+        [{ color: [] }, { background: [] }],
+        [{ align: [] }],
+        ['clean'],
+        ['link', 'image', 'video']
+      ]
+    },
+    placeholder: '请输入内容',
+    readOnly: props.readOnly
+  })
+
+  if (props.type === 'url') {
+    const toolbar = quill.getModule('toolbar')
+    toolbar.addHandler('image', (value) => {
+      if (destroyed) {
+        return
       }
-      if (this.height) {
-        style.height = `${this.height}px`;
-      }
-      return style;
-    },
-    currentContent() {
-      return this.modelValue === undefined ? this.value : this.modelValue
-    }
-  },
-  watch: {
-    currentContent: {
-      handler(val) {
-        if (val !== this.currentValue) {
-          this.currentValue = val === null || val === undefined ? "" : val;
-          if (this.Quill) {
-            this.Quill.pasteHTML(this.currentValue);
-          }
-        }
-      },
-      immediate: true,
-    },
-    value: {
-      handler(val) {
-        if (val !== this.currentValue) {
-          this.currentValue = val === null ? "" : val;
-          if (this.Quill) {
-            this.Quill.pasteHTML(this.currentValue);
-          }
-        }
-      },
-      immediate: true,
-    },
-  },
-  mounted() {
-    this.init();
-  },
-  beforeUnmount() {
-    this.Quill = null;
-  },
-  methods: {
-    init() {
-      const editor = this.$refs.editor;
-      this.Quill = new Quill(editor, this.options);
-      // 如果设置了上传地址则自定义图片上传事件
-      if (this.type == 'url') {
-        let toolbar = this.Quill.getModule("toolbar");
-        toolbar.addHandler("image", (value) => {
-          this.uploadType = "image";
-          if (value) {
-            const input = this.$refs.upload?.$el?.querySelector('input[type="file"]')
-            if (input) input.click()
-          } else {
-            this.quill.format("image", false);
-          }
-        });
-      }
-      this.Quill.pasteHTML(this.currentValue);
-      this.Quill.on("text-change", (delta, oldDelta, source) => {
-        const html = this.$refs.editor.children[0].innerHTML;
-        const text = this.Quill.getText();
-        const quill = this.Quill;
-        this.currentValue = html;
-        this.$emit("update:modelValue", html);
-        this.$emit("input", html);
-        this.$emit("on-change", { html, text, quill });
-      });
-      this.Quill.on("text-change", (delta, oldDelta, source) => {
-        this.$emit("on-text-change", delta, oldDelta, source);
-      });
-      this.Quill.on("selection-change", (range, oldRange, source) => {
-        this.$emit("on-selection-change", range, oldRange, source);
-      });
-      this.Quill.on("editor-change", (eventName, ...args) => {
-        this.$emit("on-editor-change", eventName, ...args);
-      });
-    },
-    // 上传前校检格式和大小
-    handleBeforeUpload(file) {
-      // 校检文件大小
-      if (this.fileSize) {
-        const isLt = file.size / 1024 / 1024 < this.fileSize;
-        if (!isLt) {
-          this.$message.error(`上传文件大小不能超过 ${this.fileSize} MB!`);
-          return false;
-        }
-      }
-      return true;
-    },
-    handleUploadSuccess(res, file) {
-      // 获取富文本组件实例
-      let quill = this.Quill;
-      // 如果上传成功
-      if (res.code == 200) {
-        // 获取光标所在位置
-        let length = quill.getSelection().index;
-        // 插入图片  res.url为服务器返回的图片地址
-        quill.insertEmbed(length, "image", res.data.url);
-        // 调整光标到最后
-        quill.setSelection(length + 1);
+      if (value) {
+        const input = upload.value?.$el?.querySelector('input[type="file"]')
+        if (input) input.click()
       } else {
-        this.$message.error("图片插入失败");
+        quill.format('image', false)
       }
-    },
-    handleUploadError() {
-      this.$message.error("图片插入失败");
-    },
-  },
-};
+    })
+  }
+
+  safePaste(currentValue.value)
+
+  quill.on('text-change', (delta, oldDelta, source) => {
+    if (destroyed || updating.value || !editor.value || !quill) {
+      return
+    }
+    try {
+      const html = quill.root.innerHTML
+      const text = quill.getText()
+      if (html === currentValue.value) {
+        emit('on-text-change', delta, oldDelta, source)
+        return
+      }
+      currentValue.value = html
+      updating.value = true
+      emit('update:modelValue', html)
+      emit('input', html)
+      emit('on-change', { html, text, quill })
+      emit('on-text-change', delta, oldDelta, source)
+      nextTick(() => {
+        updating.value = false
+      })
+    } catch (e) {
+      updating.value = false
+    }
+  })
+
+  quill.on('selection-change', (range, oldRange, source) => {
+    if (destroyed) return
+    emit('on-selection-change', range, oldRange, source)
+  })
+
+  quill.on('editor-change', (eventName, ...args) => {
+    if (destroyed) return
+    emit('on-editor-change', eventName, ...args)
+  })
+}
+
+function destroyQuill() {
+  destroyed = true
+  updating.value = true
+  if (quill) {
+    try {
+      quill.off('text-change')
+      quill.off('selection-change')
+      quill.off('editor-change')
+      quill.enable(false)
+    } catch (e) {
+      // ignore
+    }
+    quill = null
+  }
+  const el = editor.value
+  if (el && el.parentNode) {
+    try {
+      // Quill 会在编辑器前插入 toolbar，离开页面时一并清掉，避免 Vue 卸载报 vnode/parentNode 空
+      const toolbar = el.previousElementSibling
+      if (toolbar && toolbar.classList.contains('ql-toolbar')) {
+        toolbar.parentNode && toolbar.parentNode.removeChild(toolbar)
+      }
+      el.classList.remove('ql-container', 'ql-snow', 'ql-disabled')
+      el.innerHTML = ''
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+function handleBeforeUpload(file) {
+  if (props.fileSize) {
+    const isLt = file.size / 1024 / 1024 < props.fileSize
+    if (!isLt) {
+      ElMessage.error(`上传文件大小不能超过 ${props.fileSize} MB!`)
+      return false
+    }
+  }
+  return true
+}
+
+function handleUploadSuccess(res) {
+  if (destroyed || !quill) {
+    return
+  }
+  if (res.code == 200) {
+    const range = quill.getSelection(true)
+    const length = range ? range.index : 0
+    quill.insertEmbed(length, 'image', res.data.url)
+    quill.setSelection(length + 1)
+  } else {
+    ElMessage.error('图片插入失败')
+  }
+}
+
+function handleUploadError() {
+  ElMessage.error('图片插入失败')
+}
+
+onMounted(() => {
+  destroyed = false
+  init()
+})
+
+onBeforeUnmount(() => {
+  destroyQuill()
+})
 </script>
 
 <style>
+.editor-wrap {
+  position: relative;
+}
 .editor, .ql-toolbar {
   white-space: pre-wrap !important;
   line-height: normal !important;

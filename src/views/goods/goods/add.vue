@@ -2,11 +2,10 @@
   <goodsForm :is-edit="false" :is-add="true" />
 </template>
 
-<script>
-import goodsForm from './goodsForm'
+<script setup>
+import goodsForm from './goodsForm.vue'
 
-export default {
-  name: 'goodsAdd',
-  components: { goodsForm }
-}
+
+defineOptions({ name: 'goodsAdd' })
+
 </script>

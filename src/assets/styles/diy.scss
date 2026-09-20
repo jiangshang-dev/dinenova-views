@@ -2,6 +2,24 @@
   display: flex;
   height: calc(100vh - 98px);
 
+  /* 旧后台 common.css 的重置，装修页依赖这些才能对齐 */
+  p,
+  ul,
+  ol,
+  li,
+  dl,
+  dt,
+  dd {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  img {
+    border: none;
+    vertical-align: middle;
+  }
+
   .diy-menu {
     padding: 0;
     width: 280px;
@@ -87,14 +105,26 @@
     }
   }
 
-  .p-icon {
-    // display: none;
+  .p-icon,
+  .p-icon.iconfont {
     color: #409eff;
-    padding-top: 6px;
+    padding-top: 0;
+    margin: 0;
+    font-family: "iconfont" !important;
+    font-size: 24px;
+    line-height: 1;
+    font-style: normal;
+    display: block;
   }
 
+  .p-txt,
   .p-text {
+    margin: 0;
+    padding: 0;
     line-height: 20px;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
   }
 
   .diy-phone { 
@@ -118,20 +148,101 @@
     background-color: #fff;
     height: calc(100vh - 158px);
     overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 
 .diy-editor {
+  padding-bottom: 20px;
+
   .common-form {
     font-size: 16px;
     height: 62px;
     line-height: 62px;
     border-bottom: 1px solid #eee;
     margin-bottom: 0;
+    padding: 0 20px;
+    box-sizing: border-box;
 
     &::before {
       display: none;
     }
+  }
+
+  .form-subtitle {
+    padding-top: 18px;
+    padding-bottom: 18px;
+    padding-left: 20px;
+    padding-right: 16px;
+
+    .gray9,
+    .form-hint {
+      display: block;
+      margin-top: 6px;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+  }
+
+  .el-form-item {
+    margin-right: 10px;
+    margin-bottom: 16px;
+    padding: 0 16px 0 0;
+  }
+
+  .el-form-item__label {
+    font-weight: 400;
+    text-align: right;
+    padding-right: 10px;
+  }
+
+  .el-form-item__content {
+    min-width: 0;
+  }
+
+  .layout-options {
+    padding: 0 16px 10px 20px;
+  }
+
+  .layout-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+
+    .el-radio-button {
+      margin: 0;
+      flex: 0 0 calc(50% - 4px);
+      max-width: calc(50% - 4px);
+    }
+
+    .el-radio-button__inner {
+      width: 100%;
+      padding: 8px 0;
+      border-radius: 4px !important;
+      border: 1px solid #dcdfe6 !important;
+      box-shadow: none !important;
+    }
+
+    .el-radio-button.is-active .el-radio-button__inner {
+      border-color: var(--el-color-primary) !important;
+    }
+  }
+
+  .layout-tip {
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .el-upload {
+    width: auto;
+    height: auto;
+    line-height: inherit;
+  }
+
+  .param-img-item .url-box .el-slider {
+    flex: 1;
+    min-width: 0;
   }
 }
 
@@ -140,48 +251,48 @@
   justify-content: flex-start;
   align-items: center;
   margin-bottom: 15px;
-  margin-right: 10px;
+  margin-right: 0;
+  padding: 0 16px 0 0;
+  box-sizing: border-box;
 
   .form-label {
     width: 100px;
     text-align: right;
     flex-shrink: 0;
     margin-right: 10px;
-  }
-}
-
-.diy-container {
-  .el-form-item {
-    margin-right: 10px;
+    line-height: 32px;
   }
 
-  .el-form-item>label {
-    width: 120px !important;
-    font-weight: 400;
-    margin-right: 10px;
-    text-align: right;
-    padding-right: 0;
+  .el-slider {
+    flex: 1;
+    min-width: 0;
   }
 
-  .el-form-item>.el-form-item__label {
-    width: 120px !important;
-    font-weight: 400;
-    margin-right: 10px;
-    text-align: right;
-    padding-right: 0;
+  .el-slider__input,
+  .el-slider .el-input-number {
+    width: 56px !important;
+    min-width: 56px;
+    flex-shrink: 0;
   }
-}
 
-.el-radio-button:first-child .el-radio-button__inner {
-  border-radius: 0;
-}
+  .flex-1,
+  .d-s-c {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: auto !important;
+  }
 
-.el-radio-button:last-child .el-radio-button__inner {
-  border-radius: 0;
-}
+  .el-input {
+    flex: 1;
+    min-width: 0;
+  }
 
-.el-radio-button {
-  margin-right: 10px;
+  .el-color-picker,
+  .el-button {
+    flex-shrink: 0;
+  }
 }
 
 .form-chink {
@@ -224,19 +335,6 @@
       height: 56px;
     }
   }
-}
-
-.el-radio-button--small .el-radio-button__inner {
-  border-left: 1px solid #dcdfe6;
-}
-
-.el-radio-button--small .el-radio-button__inner {
-  padding: 8px 23px;
-  border-radius: 4px;
-}
-
-.el-radio-button {
-  margin-bottom: 10px;
 }
 
 .diy-phone-container .diy-phone-item {

@@ -1,7 +1,7 @@
 <template>
   <!-- 授权用户 -->
   <el-dialog title="选择用户" v-model="visible" width="800px" top="5vh" append-to-body>
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true">
+    <el-form :model="queryParams" ref="queryFormRef" size="small" :inline="true">
       <el-form-item label="用户名称" prop="userName">
         <el-input
           v-model="queryParams.userName"
@@ -42,18 +42,24 @@
   </el-dialog>
 </template>
 
-<script>
+<script setup>
 import { unallocatedUserList, authUserSelectAll } from "@/api/system/role";
-export default {
-  props: {
-    // 角色编号
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, onActivated, nextTick, toRefs } from 'vue'
+import modal from '@/plugins/modal'
+
+defineOptions({ name: 'selectUser' })
+
+const props = defineProps({
+// 角色编号
     roleId: {
       type: [Number, String]
     }
-  },
-  data() {
-    return {
-      // 遮罩层
+})
+
+const emit = defineEmits([])
+
+const state = reactive({
+// 遮罩层
       visible: false,
       // 选中数组值
       userIds: [],
@@ -69,55 +75,67 @@ export default {
         userName: undefined,
         phonenumber: undefined
       }
-    };
-  },
-  methods: {
-    // 显示弹框
-    show() {
-      this.queryParams.roleId = this.roleId;
-      this.getList();
-      this.visible = true;
-    },
-    clickRow(row) {
-      this.$refs.table.toggleRowSelection(row);
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.userIds = selection.map(item => item.userId);
-    },
-    // 查询表数据
-    getList() {
-      unallocatedUserList(this.queryParams).then(res => {
-        this.userList = res.rows;
-        this.total = res.total;
+})
+const { visible, userIds, total, userList, queryParams } = toRefs(state)
+
+function show() {
+
+      queryParams.value.roleId = props.roleId;
+      getList();
+      visible.value = true;
+    
+}
+
+function clickRow(row) {
+
+      tableRef.value.toggleRowSelection(row);
+    
+}
+
+function handleSelectionChange(selection) {
+
+      userIds.value = selection.map(item => item.userId);
+    
+}
+
+function getList() {
+
+      unallocatedUserList(queryParams.value).then(res => {
+        userList.value = res.rows;
+        total.value = res.total;
       });
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.resetForm("queryForm");
-      this.handleQuery();
-    },
-    // 选择授权用户操作
-    handleSelectUser() {
-      const roleId = this.queryParams.roleId;
-      const userIds = this.userIds.join(",");
+    
+}
+
+function handleQuery() {
+
+      queryParams.value.page = 1;
+      getList();
+    
+}
+
+function resetQuery() {
+
+      queryFormRef.value?.resetFields();
+      handleQuery();
+    
+}
+
+function handleSelectUser() {
+
+      const roleId = queryParams.value.roleId;
+      const userIds = userIds.value.join(",");
       if (userIds == "") {
-        this.$modal.msgError("请选择要分配的用户");
+        modal.msgError("请选择要分配的用户");
         return;
       }
       authUserSelectAll({ roleId: roleId, userIds: userIds }).then(res => {
-        this.$modal.msgSuccess(res.msg);
+        modal.msgSuccess(res.msg);
         if (res.code === 200) {
-          this.visible = false;
-          this.$emit("ok");
+          visible.value = false;
+          emit("ok");
         }
       });
-    }
-  }
-};
+    
+}
 </script>

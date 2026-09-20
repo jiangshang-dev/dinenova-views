@@ -5,19 +5,16 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'FuintCashier',
-  data() {
-    return {
-      url: '/cashier/index'
-    }
-  },
-  methods: {
-    goto() {
-       const routeLink = this.$router.resolve({ path: this.url });
-       window.open(routeLink.href, '_blank');
-    }
-  }
+<script setup>
+import { useRouter } from 'vue-router'
+
+defineOptions({ name: 'FuintCashier' })
+
+const router = useRouter()
+const url = '/cashier/index'
+
+function goto() {
+  const routeLink = router.resolve({ path: url })
+  window.open(routeLink.href, '_blank')
 }
 </script>

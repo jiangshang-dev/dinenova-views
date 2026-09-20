@@ -93,7 +93,7 @@
 
     <!-- 添加或修改对话框 -->
     <el-dialog :title="title" v-model="open" class="common-dialog" width="700px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="120px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-row>
           <el-col :span="24">
             <el-form-item label="分组名称" prop="name">
@@ -127,160 +127,168 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { reactive, ref } from 'vue'
+
+import modal from '@/plugins/modal'
+
+import { parseTime } from '@/utils/fuint'
+
 import { getGroupList, updateGroupStatus, getGroupInfo, saveGroup, deleteGroup } from "@/api/coupon/group";
-export default {
-  name: "CouponGroupIndex",
-  data() {
-    return {
-      // 遮罩层
-      loading: true,
-      // 标题
-      title: "",
-      // 选中数组
-      ids: [],
-      // 非多个禁用
-      multiple: true,
-      // 显示搜索条件
-      showSearch: true,
-      // 总条数
-      total: 0,
-      // 表格数据
-      list: [],
-      // 会员等级列表
-      userGradeList: [],
-      // 是否显示弹出层
-      open: false,
-      // 默认排序
-      defaultSort: {prop: 'createTime', order: 'descending'},
-      // 表单参数
-      form: { id: '', name: '', description: '', status: 'A' },
-      // 查询参数
-      queryParams: {
+
+
+defineOptions({ name: 'CouponGroupIndex' })
+
+
+const loading = ref(true)
+
+const title = ref("")
+
+const ids = reactive([])
+
+const multiple = ref(true)
+
+const dateRange = ref([])
+
+const showSearch = ref(true)
+
+const total = ref(0)
+
+const list = reactive([])
+
+const userGradeList = reactive([])
+
+const open = ref(false)
+
+const defaultSort = reactive({prop: 'createTime', order: 'descending'})
+
+const form = reactive({ id: '', name: '', description: '', status: 'A' })
+
+const queryParams = reactive({
         page: 1,
         pageSize: 10,
         id: '',
         name: '',
         status: ''
-      },
-      // 表单校验
-      rules: {
+      })
+
+const rules = reactive({
         name: [
           { required: true, message: "分组名称不能为空", trigger: "blur" },
         ]
-      }
-    };
-  },
-  created() {
-    this.getList();
-  },
-  methods: {
-    // 查询列表
-    getList() {
-      this.loading = true;
-      getGroupList(this.queryParams).then( response => {
-          this.list = response.data.paginationResponse.content;
-          this.total = response.data.paginationResponse.totalElements;
-          this.userGradeList = response.data.userGradeList
-          this.loading = false;
+      })
+
+const queryForm = ref(null)
+
+const formRef = ref(null)
+
+const tables = ref(null)
+
+function getList() {
+      loading.value = true;
+      getGroupList(queryParams).then( response => {
+          list.length = 0; list.push(...(response.data.paginationResponse.content || []));
+          total.value = response.data.paginationResponse.totalElements;
+          userGradeList.length = 0; userGradeList.push(...(response.data.userGradeList || []))
+          loading.value = false;
         }
       );
-    },
-    // 搜索按钮操作
-    handleQuery() {
-      this.queryParams.page = 1;
-      this.getList();
-    },
-    // 重置按钮操作
-    resetQuery() {
-      this.dateRange = [];
-      this.resetForm("queryForm");
-      this.$refs.tables.sort(this.defaultSort.prop, this.defaultSort.order)
-      this.handleQuery();
-    },
-    // 状态修改
-    handleStatusChange(row) {
+    }
+
+function handleQuery() {
+      queryParams.page = 1;
+      getList();
+    }
+
+function resetQuery() {
+      dateRange.value = [];
+      queryForm.value?.resetFields();
+      tables.value.sort(defaultSort.prop, defaultSort.order)
+      handleQuery();
+    }
+
+function handleStatusChange(row) {
       let text = row.status == "A" ? "启用" : "禁用";
-      this.$modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
+      modal.confirm('确认要' + text + 'ID等于' + row.id + '的数据项吗？').then(function() {
         return updateGroupStatus(row.id, row.status);
       }).then(() => {
-        this.$modal.msgSuccess(text + "成功");
+        modal.msgSuccess(text + "成功");
       }).catch(function() {
         row.status = row.status === "N" ? "A" : "N";
       });
-    },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.multiple = !selection.length
-    },
-    // 排序触发事件
-    handleSortChange(column, prop, order) {
-      this.queryParams.orderByColumn = column.prop;
-      this.queryParams.isAsc = column.order;
-      this.getList();
-    },
-    // 新增按钮操作
-    handleAdd() {
-      this.reset();
-      this.open = true;
-      this.title = "新增卡券分组";
-    },
-    // 表单重置
-    reset() {
-      this.form = {
+    }
+
+function handleSelectionChange(selection) {
+      ids.length = 0; ids.push(...(selection.map(item => item.id) || []))
+      multiple.value = !selection.length
+    }
+
+function handleSortChange(column, prop, order) {
+      queryParams.orderByColumn = column.prop;
+      queryParams.isAsc = column.order;
+      getList();
+    }
+
+function handleAdd() {
+      reset();
+      open.value = true;
+      title.value = "新增卡券分组";
+    }
+
+function reset() {
+      Object.assign(form, {
         id: "",
         name: "",
         description: "",
         status: "A"
-      };
-      this.resetForm("form");
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false;
-      this.reset();
-    },
-    // 提交按钮
-    submitForm: function() {
-      this.$refs["form"].validate(valid => {
+      });
+      formRef.value?.resetFields();
+    }
+
+function cancel() {
+      open.value = false;
+      reset();
+    }
+
+function submitForm() {
+      formRef.value.validate(valid => {
         if (valid) {
-          if (this.form.id) {
-              saveGroup(this.form).then(response => {
-                this.$modal.msgSuccess("修改成功");
-                this.open = false;
-                this.getList();
+          if (form.id) {
+              saveGroup(form).then(response => {
+                modal.msgSuccess("修改成功");
+                open.value = false;
+                getList();
               });
           } else {
-              saveGroup(this.form).then(response => {
-                this.$modal.msgSuccess("新增成功");
-                this.open = false;
-                this.getList();
+              saveGroup(form).then(response => {
+                modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
               });
           }
         }
       });
-    },
-    // 修改按钮操作
-    handleUpdate(row) {
-      this.reset();
-      const id = row.id || this.ids;
+    }
+
+function handleUpdate(row) {
+      reset();
+      const id = row.id || ids;
       getGroupInfo(id).then(response => {
-        this.form = response.data.groupInfo;
-        this.open = true;
-        this.title = "编辑卡券分组";
+        Object.assign(form, response.data.groupInfo);
+        open.value = true;
+        title.value = "编辑卡券分组";
       });
-    },
-    // 删除按钮操作
-    handleDelete(row) {
-      this.$modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
+    }
+
+function handleDelete(row) {
+      modal.confirm('是否确认删除ID等于' + row.id + '的数据项？').then(function() {
         return deleteGroup(row.id);
       }).then(() => {
-        this.getList();
-        this.$modal.msgSuccess("删除成功");
+        getList();
+        modal.msgSuccess("删除成功");
       }).catch(() => {});
     }
-  }
-};
+
+getList();
 </script>
 
